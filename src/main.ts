@@ -2,12 +2,9 @@ import { dirname, importx } from "@discordx/importer";
 import type { Interaction, Message } from "discord.js";
 import { IntentsBitField } from "discord.js";
 import { Client } from "discordx";
+import { AppDataSource } from "./services/database.js"; // Добавлен импорт
 
 export const bot = new Client({
-  // To use only guild command
-  // botGuilds: [(client) => client.guilds.cache.map((guild) => guild.id)],
-
-  // Discord intents
   intents: [
     IntentsBitField.Flags.Guilds,
     IntentsBitField.Flags.GuildMembers,
@@ -16,32 +13,33 @@ export const bot = new Client({
     IntentsBitField.Flags.GuildVoiceStates,
     IntentsBitField.Flags.MessageContent,
   ],
-
-  // Debug logs are disabled in silent mode
   silent: false,
-
-  // Configuration for @SimpleCommand
   simpleCommand: {
     prefix: "!",
   },
 });
 
-bot.once("ready", () => {
-  // Make sure all guilds are cached
-  // await bot.guilds.fetch();
+async function run() {
+  try {
+    await AppDataSource.initialize();
+    console.log("✅ Database connected!");
+  } catch (error) {
+    console.error("💥 Database connection error:", error);
+    process.exit(1);
+  }
 
-  // Synchronize applications commands with Discord
-  void bot.initApplicationCommands();
+  await importx(`${dirname(import.meta.url)}/{events,commands}/**/*.{ts,js}`);
 
-  // To clear all guild commands, uncomment this line,
-  // This is useful when moving from guild commands to global commands
-  // It must only be executed once
-  //
-  //  await bot.clearApplicationCommands(
-  //    ...bot.guilds.cache.map((g) => g.id)
-  //  );
+  if (!process.env.BOT_TOKEN) {
+    throw Error("Could not find BOT_TOKEN in your environment");
+  }
 
-  console.log("Bot started");
+  await bot.login(process.env.BOT_TOKEN);
+}
+
+bot.once("ready", async () => {
+  await bot.initApplicationCommands();
+  console.log("🤖 Bot started");
 });
 
 bot.on("interactionCreate", (interaction: Interaction) => {
@@ -51,22 +49,5 @@ bot.on("interactionCreate", (interaction: Interaction) => {
 bot.on("messageCreate", (message: Message) => {
   void bot.executeCommand(message);
 });
-
-async function run() {
-  // The following syntax should be used in the commonjs environment
-  //
-  // await importx(__dirname + "/{events,commands}/**/*.{ts,js}");
-
-  // The following syntax should be used in the ECMAScript environment
-  await importx(`${dirname(import.meta.url)}/{events,commands}/**/*.{ts,js}`);
-
-  // Let's start the bot
-  if (!process.env.BOT_TOKEN) {
-    throw Error("Could not find BOT_TOKEN in your environment");
-  }
-
-  // Log in with your bot token
-  await bot.login(process.env.BOT_TOKEN);
-}
 
 void run();

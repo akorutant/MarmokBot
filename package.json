@@ -7,18 +7,24 @@
   "main": "build/main.js",
   "scripts": {
     "build": "tsc",
-    "dev": "node --loader ts-node/esm/transpile-only src/main.ts",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec \"node --no-warnings --loader ts-node/esm src/main.ts\"",
     "start": "node build/main.js",
-    "watch": "nodemon --exec npm run dev --watch src --ext ts"
+    "watch": "nodemon -e ts --watch src --exec npm run dev",
+    "migrate": "ts-node ./src/migrations/migrate.ts"
   },
   "dependencies": {
     "@discordx/importer": "^1.3.1",
     "@discordx/pagination": "^3.5.5",
     "discord.js": "^14.17.3",
-    "discordx": "^11.12.2"
+    "discordx": "^11.12.2",
+    "dotenv": "^16.4.7",
+    "mysql2": "^3.14.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.22"
   },
   "devDependencies": {
-    "@types/node": "^22.10.10",
+    "@types/dotenv": "^6.1.1",
+    "@types/node": "^22.14.0",
     "nodemon": "^3.1.9",
     "prettier": "^3.4.2",
     "ts-node": "^10.9.2",

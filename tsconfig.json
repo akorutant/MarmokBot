@@ -1,18 +1,23 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "outDir": "build",
-    "rootDir": "src",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "outDir": "./build",
+    "rootDir": "./src",
     "strict": true,
-    "moduleResolution": "Node",
-    "allowSyntheticDefaultImports": true,
-
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": false,
-
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"]
   },
-  "exclude": ["build", "node_modules"]
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "build"]
 }
