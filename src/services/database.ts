@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
-import { User } from '../entities/User.js'; // Явный импорт сущности
+import { User } from '../entities/User.js'; 
+import { Exp } from '../entities/Exp.js';
 
 config();
 
@@ -11,9 +12,9 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  entities: [User], // Прямое указание сущности
+  entities: [User, Exp],
   synchronize: true,
-  logging: true, // Включите для дебага
+  logging: true,
   charset: 'utf8mb4',
   migrations: [],
   subscribers: [],
