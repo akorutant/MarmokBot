@@ -1,4 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, Index } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn, OneToOne } from "typeorm";
+import type { Relation } from "typeorm";
+import type { Exp } from "./Exp.js";
 
 @Entity()
 export class User {
@@ -15,21 +17,28 @@ export class User {
     unsigned: true,
     transformer: {
       to: (value: bigint) => value.toString(),
-      from: (value: string) => BigInt(value)
-    }
+      from: (value: string) => BigInt(value),
+    },
   })
-  exp!: bigint;
+  messageCount!: bigint;
 
   @Column({
-    type: "int",
-    default: 0,
+    type: "bigint",
+    default: () => "0",
     unsigned: true,
+    transformer: {
+      to: (value: bigint) => value.toString(),
+      from: (value: string) => BigInt(value),
+    },
   })
-  voiceMinutes!: number;
+  voiceMinutes!: bigint;
 
-  @Column({ 
-    type: "timestamp", 
-    default: () => "CURRENT_TIMESTAMP" 
+  @Column({
+    type: "timestamp",
+    default: () => "CURRENT_TIMESTAMP",
   })
   createdAt!: Date;
+
+  @OneToOne("Exp", "user")
+  exp!: Relation<Exp>;
 }
