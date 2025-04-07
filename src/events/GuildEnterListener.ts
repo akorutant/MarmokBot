@@ -1,6 +1,8 @@
 import { Discord, On, ArgsOf } from "discordx";
 import { AppDataSource } from "../services/database.js";
 import { User } from "../entities/User.js";
+import { Exp } from "../entities/Exp.js";
+import logger from "../services/logger.js";
 
 @Discord()
 class GuildEnterListener {
@@ -8,17 +10,27 @@ class GuildEnterListener {
   async onGuildMemberAdd([member]: ArgsOf<"guildMemberAdd">) {
     try {
       const userRepository = AppDataSource.getRepository(User);
+      const expRepository = AppDataSource.getRepository(Exp);
       const existingUser = await userRepository.findOneBy({ discordId: member.id });
+      
       if (!existingUser) {
         const newUser = userRepository.create({ 
           discordId: member.id, 
-          exp: 0n, 
-          voiceMinutes: 0 
+          messageCount: 0n,
+          voiceMinutes: 0n
         });
         await userRepository.save(newUser);
+        
+        const newExp = expRepository.create({ 
+          exp: 0n, 
+          user: newUser 
+        });
+        await expRepository.save(newExp);
+
+        logger.info("Создан новый пользователь: %s", member.id);
       }
     } catch (error) {
-      console.error("Ошибка при добавлении пользователя в БД:", error);
+      logger.error("Ошибка при добавлении пользователя в БД: %o", error);
     }
   }
 }
