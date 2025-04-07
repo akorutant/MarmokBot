@@ -5,3 +5,8 @@ services:
     command: node build/main.js
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
+  mysql:
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
