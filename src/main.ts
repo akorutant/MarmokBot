@@ -2,7 +2,8 @@ import { dirname, importx } from "@discordx/importer";
 import type { Interaction, Message } from "discord.js";
 import { IntentsBitField } from "discord.js";
 import { Client } from "discordx";
-import { AppDataSource } from "./services/database.js"; // Добавлен импорт
+import { AppDataSource } from "./services/database.js";
+import { setupLogServer } from "./services/logServer/logServer.js";
 
 export const bot = new Client({
   intents: [
@@ -28,6 +29,7 @@ async function run() {
     process.exit(1);
   }
 
+  setupLogServer();
   await importx(`${dirname(import.meta.url)}/{events,commands}/**/*.{ts,js}`);
 
   if (!process.env.BOT_TOKEN) {

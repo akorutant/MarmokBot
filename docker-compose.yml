@@ -5,8 +5,35 @@ services:
     command: node build/main.js
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
-  mysql:
-    environment:
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=mysql
+      - DB_PORT=${DB_PORT:-3306}
+      - LOG_PORT=${LOG_PORT:-5050}
+      - LOGS_DIR=${LOGS_DIR:-/app/logs}
+      - LOGS_USERNAME=${LOGS_USERNAME:-admin}
+      - LOGS_PASSWORD=${LOGS_PASSWORD:-secret}
+    ports:
+      - "${LOG_PORT:-5050}:${LOG_PORT:-5050}"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-3306}:3306"
+
+volumes:
+  mysql_data:

@@ -1,0 +1,93 @@
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h1 class="text-2xl font-bold mb-4 text-gray-800">
+        <i class="fas fa-file-alt mr-2 text-blue-500"></i>
+        <%= title %>
+    </h1>
+
+    <div class="mb-4">
+        <div class="bg-gray-50 rounded-lg p-2 flex justify-between items-center">
+            <div class="text-sm">
+                <span class="mr-4"><i class="fas fa-info-circle text-blue-500 mr-1"></i> Log file content</span>
+            </div>
+            <div>
+                <button id="copyBtn" class="text-sm px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">
+                    <i class="fas fa-copy mr-1"></i> Copy to clipboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="logContent"
+        class="bg-gray-50 rounded p-4 font-mono text-sm overflow-x-auto max-h-[70vh] overflow-y-auto border border-gray-200">
+        <pre><%= content %></pre>
+    </div>
+
+    <div class="mt-4 flex justify-between">
+        <a href="/logs" class="text-blue-500 hover:text-blue-700 flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i>Back to list
+        </a>
+    </div>
+
+    <script>
+
+        function colorizeLogContent() {
+            const logContent = document.getElementById('logContent');
+            const preElement = logContent.querySelector('pre');
+
+            if (!preElement) return;
+
+            const content = preElement.textContent;
+
+            const colorized = content.replace(/(\{.*?\})/g, function (match) {
+                try {
+                    const json = JSON.parse(match);
+                    let html = '<div class="p-1 border-b border-gray-200">';
+
+                    if (json.level) {
+                        const levelClass = json.level === 'error' ? 'text-red-600 font-bold' :
+                            json.level === 'warn' ? 'text-yellow-600' :
+                                json.level === 'info' ? 'text-blue-600' : '';
+                        html += `<span class="${levelClass}">[${json.level.toUpperCase()}]</span> `;
+                    }
+
+                    if (json.timestamp) {
+                        html += `<span class="text-purple-600">${json.timestamp}</span> `;
+                    }
+
+                    if (json.message) {
+                        html += `<span>${json.message}</span>`;
+                    }
+
+                    if (json.service) {
+                        html += ` <span class="text-gray-500">(${json.service})</span>`;
+                    }
+
+                    html += '</div>';
+                    return html;
+                } catch (e) {
+                    return match;
+                }
+            });
+
+            logContent.innerHTML = colorized;
+        }
+
+        document.getElementById('copyBtn').addEventListener('click', function () {
+            const logContent = document.getElementById('logContent');
+            const content = logContent.textContent || '';
+
+            navigator.clipboard.writeText(content).then(() => {
+                const btn = this;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check mr-1"></i> Copied!';
+                btn.classList.add('bg-green-100', 'text-green-700');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('bg-green-100', 'text-green-700');
+                }, 2000);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', colorizeLogContent);
+    </script>
+</div>
