@@ -1,6 +1,7 @@
 import { Entity, Column, Index, PrimaryGeneratedColumn, OneToOne } from "typeorm";
 import type { Relation } from "typeorm";
 import type { Exp } from "./Exp.js";
+import { Currency } from "./Currency.js";
 
 @Entity()
 export class User {
@@ -41,4 +42,7 @@ export class User {
 
   @OneToOne("Exp", "user")
   exp!: Relation<Exp>;
+
+  @OneToOne("Currency","user")
+  currency!: Relation<Currency>;
 }
