@@ -13,14 +13,13 @@ const activeVoiceSessions = new Map<string, number>();
 @Discord()
 class ExpAndCurrencyListener {
   constructor(private client: Client) {
-    // Устанавливаем клиент для использования в декораторах
     setDiscordClient(client);
     logger.info("ExpAndCurrencyListener инициализирован с клиентом Discord");
   }
 
   @On({ event: "messageCreate" })
   @EnsureUser() 
-  @CheckLevelUp() // Теперь декоратор не требует передачи клиента
+  @CheckLevelUp()
   async onMessage([message]: ArgsOf<"messageCreate">) {
     if (message.author.bot) return;
 
@@ -49,7 +48,7 @@ class ExpAndCurrencyListener {
   @On({ event: "voiceStateUpdate" })
   @BlockVoicePresentInChannels()
   @EnsureUser()
-  @CheckLevelUp() // Теперь декоратор не требует передачи клиента
+  @CheckLevelUp()
   async onVoiceStateUpdate([oldState, newState]: ArgsOf<"voiceStateUpdate">) {
     const userId = newState.id;
     const userRepository = AppDataSource.getRepository(User);
@@ -97,10 +96,9 @@ class ExpAndCurrencyListener {
   }
 }
 
-// Класс для обработки активных голосовых сессий
 @Discord()
 class VoiceSessionManager {
-  @CheckLevelUp() // Теперь декоратор не требует передачи клиента
+  @CheckLevelUp() 
   async updateActiveVoiceSessions(userId: string, minutes: number) {
     const userRepository = AppDataSource.getRepository(User);
     const expRepository = AppDataSource.getRepository(Exp);
@@ -163,10 +161,8 @@ class VoiceSessionManager {
   }
 }
 
-// Инициализируем менеджер голосовых сессий
 const voiceSessionManager = new VoiceSessionManager();
 
-// Настраиваем интервальную функцию
 setInterval(async () => {
   const now = Date.now();
 
