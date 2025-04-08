@@ -4,6 +4,8 @@ import { IntentsBitField } from "discord.js";
 import { Client } from "discordx";
 import { AppDataSource } from "./services/database.js";
 import { setupLogServer } from "./services/logServer/logServer.js";
+import { seedDefaultConfigs } from "./services/initDatabase.js";
+import { setDiscordClient } from "./utils/decorators/CheckLevelUp.js";
 
 export const bot = new Client({
   intents: [
@@ -24,6 +26,9 @@ async function run() {
   try {
     await AppDataSource.initialize();
     console.log("✅ Database connected!");
+    await seedDefaultConfigs();
+    console.log("✅ Data Source has been initialized!");
+
   } catch (error) {
     console.error("💥 Database connection error:", error);
     process.exit(1);
@@ -47,6 +52,7 @@ async function run() {
 
 bot.once("ready", async () => {
   await bot.initApplicationCommands();
+  setDiscordClient(bot);
   console.log("🤖 Bot started");
 });
 

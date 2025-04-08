@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { User } from '../entities/User.js'; 
 import { Exp } from '../entities/Exp.js';
 import { Currency } from '../entities/Currency.js';
+import { Config } from '../entities/Config.js';
 
 config();
 
@@ -13,7 +14,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  entities: [User, Exp, Currency],
+  entities: [User, Exp, Currency, Config],
   synchronize: true,
   logging: true,
   charset: 'utf8mb4',

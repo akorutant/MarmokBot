@@ -19,6 +19,12 @@ export class Exp {
   exp!: bigint;
 
   @Column({
+    type: "int",
+    unsigned: true,
+  })
+  level!: number;
+
+  @Column({
     type: "timestamp",
     default: () => "CURRENT_TIMESTAMP",
   })

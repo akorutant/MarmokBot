@@ -1,8 +1,10 @@
-import { Discord, On, ArgsOf } from "discordx";
+import { Discord, On, ArgsOf, Client } from "discordx";
 import { AppDataSource } from "../services/database.js";
 import { User } from "../entities/User.js";
 import { Exp } from "../entities/Exp.js";
-import { VoiceState } from "discord.js";
+import { BlockVoicePresentInChannels } from "../utils/decorators/BlockVoicePresentInChannels.js";
+import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
+import { CheckLevelUp, setDiscordClient } from "../utils/decorators/CheckLevelUp.js";
 import logger from "../services/logger.js";
 import { Currency } from "../entities/Currency.js";
 
@@ -10,7 +12,15 @@ const activeVoiceSessions = new Map<string, number>();
 
 @Discord()
 class ExpAndCurrencyListener {
+  constructor(private client: Client) {
+    // Устанавливаем клиент для использования в декораторах
+    setDiscordClient(client);
+    logger.info("ExpAndCurrencyListener инициализирован с клиентом Discord");
+  }
+
   @On({ event: "messageCreate" })
+  @EnsureUser() 
+  @CheckLevelUp() // Теперь декоратор не требует передачи клиента
   async onMessage([message]: ArgsOf<"messageCreate">) {
     if (message.author.bot) return;
 
@@ -24,48 +34,22 @@ class ExpAndCurrencyListener {
         relations: ["exp", "currency"]
       });
 
-      if (user) {
-        await userRepository.increment({ discordId: message.author.id }, "messageCount", 1);
-        if (user.exp) {
-          await expRepository.increment({ id: user.exp.id }, "exp", 1);
-          logger.info(`Пользователь ${message.author.id} +1 EXP`);
-        } else {
-          const newExp = expRepository.create({ exp: 1n, user });
-          await expRepository.save(newExp);
-          logger.info(`Пользователь ${message.author.id} +1 EXP`);
-        }
-
-        if (user.currency) {
-          await currencyRepository.increment({ id: user.currency.id }, "currencyCount", 1);
-          logger.info(`Пользователь ${message.author.id} +1 валюта`);
-        } else {
-          const newCurrency = currencyRepository.create({ currencyCount: 1n, user });
-          await currencyRepository.save(newCurrency);
-          logger.info(`Пользователь ${message.author.id} +1 валюта`);
-        }
-
-      } else {
-        const newUser = userRepository.create({
-          discordId: message.author.id,
-          messageCount: 1n,
-          voiceMinutes: 0n
-        });
-        await userRepository.save(newUser);
-
-        const newExp = expRepository.create({ exp: 1n, user: newUser });
-        await expRepository.save(newExp);
-
-        const newCurrency = currencyRepository.create({ currencyCount: 1n, user: newUser });
-        await currencyRepository.save(newCurrency);
-
-        logger.info(`Создан новый пользователь ${message.author.id}`);
-      }
+      await userRepository.increment({ discordId: message.author.id }, "messageCount", 1);
+      
+      await expRepository.increment({ id: user?.exp.id }, "exp", 1);
+      logger.info(`Пользователь ${message.author.id} +1 EXP`);
+      
+      await currencyRepository.increment({ id: user?.currency.id }, "currencyCount", 1);
+      logger.info(`Пользователь ${message.author.id} +1 валюта`);
     } catch (error) {
       logger.error("Ошибка при обработке сообщения от %s: %O", message.author.id, error);
     }
   }
 
   @On({ event: "voiceStateUpdate" })
+  @BlockVoicePresentInChannels()
+  @EnsureUser()
+  @CheckLevelUp() // Теперь декоратор не требует передачи клиента
   async onVoiceStateUpdate([oldState, newState]: ArgsOf<"voiceStateUpdate">) {
     const userId = newState.id;
     const userRepository = AppDataSource.getRepository(User);
@@ -91,56 +75,18 @@ class ExpAndCurrencyListener {
               relations: ["exp", "currency"]
             });
 
-            if (user) {
-              await userRepository.increment({ discordId: userId }, "voiceMinutes", minutes);
-              
-              if (user.exp) {
-                await expRepository.increment({ id: user.exp.id }, "exp", Number(expToAdd));
-              } else {
-                const newExp = expRepository.create({ exp: expToAdd, user });
-                await expRepository.save(newExp);
-              }
+            await userRepository.increment({ discordId: userId }, "voiceMinutes", minutes);            
+            await expRepository.increment({ id: user?.exp.id }, "exp", Number(expToAdd));
+            await currencyRepository.increment(
+              { id: user?.currency.id }, 
+              "currencyCount", 
+              Number(currencyToAdd)
+            );
 
-              if (user.currency) {
-                await currencyRepository.increment(
-                  { id: user.currency.id }, 
-                  "currencyCount", 
-                  Number(currencyToAdd)
-                );
-              } else {
-                const newCurrency = currencyRepository.create({ 
-                  currencyCount: currencyToAdd, 
-                  user 
-                });
-                await currencyRepository.save(newCurrency);
-              }
-
-              logger.info(
-                `Пользователь ${userId} покинул голос. +${minutes} мин, ` +
-                `+${expToAdd} EXP, +${currencyToAdd} валюты`
-              );
-            } else {
-              const newUser = userRepository.create({
-                discordId: userId,
-                messageCount: 0n,
-                voiceMinutes: BigInt(minutes)
-              });
-              await userRepository.save(newUser);
-
-              const newExp = expRepository.create({ exp: expToAdd, user: newUser });
-              await expRepository.save(newExp);
-
-              const newCurrency = currencyRepository.create({ 
-                currencyCount: currencyToAdd, 
-                user: newUser 
-              });
-              await currencyRepository.save(newCurrency);
-
-              logger.info(
-                `Создан новый пользователь ${userId}. +${minutes} мин, ` +
-                `+${expToAdd} EXP, +${currencyToAdd} валюты`
-              );
-            }
+            logger.info(
+              `Пользователь ${userId} покинул голос. +${minutes} мин, ` +
+              `+${expToAdd} EXP, +${currencyToAdd} валюты`
+            );
           } catch (error) {
             logger.error("Ошибка при обновлении голосовых данных для %s: %O", userId, error);
           }
@@ -151,11 +97,77 @@ class ExpAndCurrencyListener {
   }
 }
 
+// Класс для обработки активных голосовых сессий
+@Discord()
+class VoiceSessionManager {
+  @CheckLevelUp() // Теперь декоратор не требует передачи клиента
+  async updateActiveVoiceSessions(userId: string, minutes: number) {
+    const userRepository = AppDataSource.getRepository(User);
+    const expRepository = AppDataSource.getRepository(Exp);
+    const currencyRepository = AppDataSource.getRepository(Currency);
+    
+    const expToAdd = BigInt(minutes * 5);
+    const currencyToAdd = BigInt(minutes);
 
+    try {
+      let user = await userRepository.findOne({
+        where: { discordId: userId },
+        relations: ["exp", "currency"]
+      });
+
+      if (!user) {
+        user = userRepository.create({
+          discordId: userId,
+          messageCount: 0n,
+          voiceMinutes: BigInt(minutes)
+        });
+        await userRepository.save(user);
+
+        const newExp = expRepository.create({ 
+          exp: expToAdd, 
+          level: 1,
+          user 
+        });
+        await expRepository.save(newExp);
+
+        const newCurrency = currencyRepository.create({ 
+          currencyCount: currencyToAdd, 
+          user 
+        });
+        await currencyRepository.save(newCurrency);
+
+        logger.info(
+          `[AUTO] Новый пользователь ${userId}: +${minutes} мин, ` +
+          `+${expToAdd} EXP, +${currencyToAdd} валюты`
+        );
+      } else {
+        await userRepository.increment({ discordId: userId }, "voiceMinutes", minutes);
+        await expRepository.increment({ id: user.exp.id }, "exp", Number(expToAdd));
+        await currencyRepository.increment(
+          { id: user.currency.id }, 
+          "currencyCount", 
+          Number(currencyToAdd)
+        );
+
+        logger.info(
+          `[AUTO] Пользователь ${userId}: +${minutes} мин, ` +
+          `+${expToAdd} EXP, +${currencyToAdd} валюты`
+        );
+      }
+
+      return true;
+    } catch (error) {
+      logger.error("Ошибка при периодическом обновлении для %s: %O", userId, error);
+      return false;
+    }
+  }
+}
+
+// Инициализируем менеджер голосовых сессий
+const voiceSessionManager = new VoiceSessionManager();
+
+// Настраиваем интервальную функцию
 setInterval(async () => {
-  const userRepository = AppDataSource.getRepository(User);
-  const expRepository = AppDataSource.getRepository(Exp);
-  const currencyRepository = AppDataSource.getRepository(Currency);
   const now = Date.now();
 
   for (const [userId, joinTime] of activeVoiceSessions.entries()) {
@@ -163,69 +175,13 @@ setInterval(async () => {
 
     if (diff >= 60 * 1000) {
       const minutes = Math.floor(diff / (60 * 1000));
-      const expToAdd = BigInt(minutes * 5);
-      const currencyToAdd = BigInt(minutes);
-
-      try {
-        let user = await userRepository.findOne({
-          where: { discordId: userId },
-          relations: ["exp", "currency"]
-        });
-
-        if (user) {
-          await userRepository.increment({ discordId: userId }, "voiceMinutes", minutes);
-          
-          if (user.exp) {
-            await expRepository.increment({ id: user.exp.id }, "exp", Number(expToAdd));
-          } else {
-            const newExp = expRepository.create({ exp: expToAdd, user });
-            await expRepository.save(newExp);
-          }
-
-          if (user.currency) {
-            await currencyRepository.increment(
-              { id: user.currency.id }, 
-              "currencyCount", 
-              Number(currencyToAdd)
-            );
-          } else {
-            const newCurrency = currencyRepository.create({ 
-              currencyCount: currencyToAdd, 
-              user 
-            });
-            await currencyRepository.save(newCurrency);
-          }
-
-          logger.info(
-            `[AUTO] Пользователь ${userId}: +${minutes} мин, ` +
-            `+${expToAdd} EXP, +${currencyToAdd} валюты`
-          );
-        } else {
-          const newUser = userRepository.create({
-            discordId: userId,
-            messageCount: 0n,
-            voiceMinutes: BigInt(minutes)
-          });
-          await userRepository.save(newUser);
-
-          const newExp = expRepository.create({ exp: expToAdd, user: newUser });
-          await expRepository.save(newExp);
-
-          const newCurrency = currencyRepository.create({ 
-            currencyCount: currencyToAdd, 
-            user: newUser 
-          });
-          await currencyRepository.save(newCurrency);
-
-          logger.info(
-            `[AUTO] Новый пользователь ${userId}: +${minutes} мин, ` +
-            `+${expToAdd} EXP, +${currencyToAdd} валюты`
-          );
+      
+      if (minutes > 0) {
+        const success = await voiceSessionManager.updateActiveVoiceSessions(userId, minutes);
+        
+        if (success) {
+          activeVoiceSessions.set(userId, joinTime + minutes * 60 * 1000);
         }
-
-        activeVoiceSessions.set(userId, joinTime + minutes * 60 * 1000);
-      } catch (error) {
-        logger.error("Ошибка при периодическом обновлении для %s: %O", userId, error);
       }
     }
   }
