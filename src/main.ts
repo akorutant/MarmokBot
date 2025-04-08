@@ -30,8 +30,14 @@ async function run() {
   }
 
   setupLogServer();
-  await importx(`${dirname(import.meta.url)}/{events,commands}/**/*.{ts,js}`);
-
+  try {
+    console.log("📦 Импорт команд...");
+    await importx(`${dirname(import.meta.url)}/{events,commands}/**/*.{ts,js}`);
+    console.log("✅ Импорт завершен");
+  } catch (err) {
+    console.error("❌ Ошибка при импорте файлов:", err);
+    process.exit(1);
+  }
   if (!process.env.BOT_TOKEN) {
     throw Error("Could not find BOT_TOKEN in your environment");
   }

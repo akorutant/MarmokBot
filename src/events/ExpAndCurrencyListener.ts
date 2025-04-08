@@ -21,7 +21,7 @@ class ExpAndCurrencyListener {
 
       let user = await userRepository.findOne({
         where: { discordId: message.author.id },
-        relations: ["exp"]
+        relations: ["exp", "currency"]
       });
 
       if (user) {
