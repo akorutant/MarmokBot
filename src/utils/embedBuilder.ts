@@ -273,10 +273,18 @@ export function createProfileEmbed(
   const voiceHours = Math.round(Number(voiceMinutes) / 6) / 10;
   const fields = [];
   
-  if (exp !== undefined && level !== undefined) {
+  if (level !== undefined) {
     fields.push({
-      name: "🌟 Опыт и уровень",
-      value: `**${exp}** XP | Уровень: **${level}**`,
+      name: "⭐ Уровень",
+      value: `**${level}**`,
+      inline: true
+    });
+  }
+  
+  if (exp !== undefined) {
+    fields.push({
+      name: "🌟 Опыт",
+      value: `**${exp}** XP`,
       inline: true
     });
   }

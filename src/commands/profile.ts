@@ -11,7 +11,8 @@ import logger from "../services/logger.js";
 class ProfileCommand {
     @Slash({ description: "Показать профиль пользователя" })
     @Guard(ChannelGuard("user_commands_channel"))
-    @EnsureUser() 
+    @EnsureUser()
+    
     async profile(
         @SlashOption({
             name: "user",
@@ -30,7 +31,7 @@ class ProfileCommand {
                 where: { discordId: targetUser.id },
                 relations: ["exp", "currency"]
             });
-
+            
             const messageCount = dbUser?.messageCount ?? BigInt(0);
             const voiceMinutes = dbUser?.voiceMinutes ?? BigInt(0);
             const expValue = dbUser?.exp?.exp ?? BigInt(0);
@@ -46,7 +47,7 @@ class ProfileCommand {
                 currencyValue,
                 interaction.user
             );
-
+            
             await interaction.reply({ embeds: [embed] });
         } catch (error) {
             logger.error("Ошибка в команде profile:", error);
