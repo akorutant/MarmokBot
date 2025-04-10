@@ -2,35 +2,7 @@ import { AppDataSource } from "../../services/database.js";
 import { Exp } from "../../entities/Exp.js";
 import logger from "../../services/logger.js";
 import { Client } from "discord.js";
-
-/**
- * Вычисляет требуемый опыт для достижения определенного уровня
- * @param level целевой уровень
- * @returns количество опыта, необходимое для достижения уровня
- */
-export function getExpForLevel(level: number): bigint {
-    return BigInt(Math.floor(800 * level * level));
-}
-
-/**
- * Находит максимальный уровень, который пользователь может достичь с текущим опытом
- * @param currentExp текущий опыт пользователя
- * @param startLevel уровень с которого начинать проверку
- * @returns максимальный возможный уровень
- */
-export function getMaxLevelForExp(currentExp: bigint, startLevel: number = 1): number {
-    let level = startLevel;
-    
-    while (level < 25) {
-        const nextLevelExp = getExpForLevel(level + 1);
-        if (currentExp < nextLevelExp) {
-            break;
-        }
-        level++;
-    }
-    
-    return level;
-}
+import { getMaxLevelForExp, getExpForLevel } from "../levelUpUtils.js";
 
 let _discordClient: Client | null = null;
 

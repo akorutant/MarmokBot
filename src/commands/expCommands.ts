@@ -1,17 +1,29 @@
 import { Discord, SlashGroup, Slash, SlashOption, Guard } from "discordx";
-import { CommandInteraction, User as DiscordUser, ApplicationCommandOptionType, GuildMember } from "discord.js";
+import { CommandInteraction, User as DiscordUser, ApplicationCommandOptionType } from "discord.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { AppDataSource } from "../services/database.js";
 import { User } from "../entities/User.js";
 import { Exp } from "../entities/Exp.js";
 import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
-import { 
-  createEmbed, 
-  createErrorEmbed, 
+import {
+  getExpForLevel,
+  calculateNextLevelExp,
+  getMaxLevelForExp,
+  getExpToNextLevel,
+  getProgressToNextLevel,
+  getDaysToNextLevel,
+  isMaxLevel
+} from "../utils/levelUpUtils.js";
+
+import {
+  createEmbed,
+  createErrorEmbed,
   createSuccessEmbed,
   createExpTopEmbed,
-  createLevelTopEmbed
+  createLevelTopEmbed,
+  createLevelProgressEmbed,
+  createExpEmbed
 } from "../utils/embedBuilder.js";
 
 import logger from "../services/logger.js";
@@ -22,16 +34,16 @@ import logger from "../services/logger.js";
 class ExpCommands {
   @Slash({ description: "Set user EXP to a specific value" })
   @RequireRoles(["high_mod_level", "medium_mod_level"])
-  @EnsureUser() 
+  @EnsureUser()
   async set(
-    @SlashOption({ 
+    @SlashOption({
       description: "Выберите пользователя",
       name: "user",
       required: true,
       type: ApplicationCommandOptionType.User
     })
     discordUser: DiscordUser,
-    @SlashOption({ 
+    @SlashOption({
       description: "Напишите кол-во EXP для установления пользователю",
       name: "exp",
       required: true,
@@ -49,14 +61,20 @@ class ExpCommands {
         relations: ["exp"]
       });
 
-      if (user && user.exp) {
+      if (user?.exp) {
         user.exp.exp = BigInt(expCount);
+        const newLevel = getMaxLevelForExp(user.exp.exp);
+        user.exp.level = newLevel;
+        
         await expRepository.save(user.exp);
-        logger.info(`Пользователю ${discordUser.id} установлено ${expCount} EXP`);
-      }
+        logger.info(`Пользователю ${discordUser.id} установлено ${expCount} EXP и уровень ${newLevel}`);
 
-      const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> установлено EXP = ${expCount}`, interaction.user);
-      await interaction.reply({ embeds: [embed] });
+        const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> установлено ${expCount} EXP (уровень ${user.exp.level})`, interaction.user);
+        await interaction.reply({ embeds: [embed] });
+      } else {
+        const embed = createErrorEmbed(`Пользователь <@${discordUser.id}> не найден или у него нет опыта`, interaction.user);
+        await interaction.reply({ embeds: [embed] });
+      }
     } catch (error) {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
@@ -66,16 +84,16 @@ class ExpCommands {
 
   @Slash({ description: "Add EXP to a user" })
   @RequireRoles(["high_mod_level", "medium_mod_level"])
-  @EnsureUser() 
+  @EnsureUser()
   async add(
-    @SlashOption({ 
+    @SlashOption({
       description: "Выберите пользователя",
       name: "user",
       required: true,
       type: ApplicationCommandOptionType.User
     })
     discordUser: DiscordUser,
-    @SlashOption({ 
+    @SlashOption({
       description: "Напишите кол-во EXP для добавления",
       name: "exp",
       required: true,
@@ -93,13 +111,36 @@ class ExpCommands {
         relations: ["exp"]
       });
 
-      if (user && user.exp) {
+      if (user?.exp) {
+        const oldLevel = user.exp.level;
         await expRepository.increment({ id: user.exp.id }, "exp", expCount);
-        logger.info(`Пользователю ${discordUser.id} добавлено ${expCount} EXP`);
+        
+        user = await userRepository.findOne({
+          where: { discordId: discordUser.id },
+          relations: ["exp"]
+        });
+        
+        if (user?.exp) {
+          const newLevel = getMaxLevelForExp(user.exp.exp);
+          
+          if (newLevel !== oldLevel) {
+            user.exp.level = newLevel;
+            await expRepository.save(user.exp);
+            
+            const levelUpMsg = `\nПользователь повысил уровень до ${newLevel}! 🎉`;
+            const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}${levelUpMsg}`, interaction.user);
+            await interaction.reply({ embeds: [embed] });
+          } else {
+            const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}`, interaction.user);
+            await interaction.reply({ embeds: [embed] });
+          }
+          
+          logger.info(`Пользователю ${discordUser.id} добавлено ${expCount} EXP, текущий уровень: ${newLevel}`);
+        }
+      } else {
+        const embed = createErrorEmbed(`Пользователь <@${discordUser.id}> не найден или у него нет опыта`, interaction.user);
+        await interaction.reply({ embeds: [embed] });
       }
-
-      const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}`, interaction.user);
-      await interaction.reply({ embeds: [embed] });
     } catch (error) {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
@@ -109,16 +150,16 @@ class ExpCommands {
 
   @Slash({ description: "Remove EXP from a user" })
   @RequireRoles(["high_mod_level", "medium_mod_level"])
-  @EnsureUser() 
+  @EnsureUser()
   async remove(
-    @SlashOption({ 
+    @SlashOption({
       description: "Выберите пользователя",
       name: "user",
       required: true,
       type: ApplicationCommandOptionType.User
     })
     discordUser: DiscordUser,
-    @SlashOption({ 
+    @SlashOption({
       description: "Напишите кол-во EXP для вычитания",
       name: "exp",
       required: true,
@@ -136,14 +177,32 @@ class ExpCommands {
         relations: ["exp"]
       });
 
-      if (user && user.exp) {
-        await expRepository.increment({ id: user.exp.id }, "exp", -expCount);
-        logger.info(`У пользователя ${discordUser.id} вычтено ${expCount} EXP`);
+      if (user?.exp) {
+        const currentExp = Number(user.exp.exp);
+        const oldLevel = user.exp.level;
+        const finalExp = Math.max(0, currentExp - expCount);
+        const actualDecrease = currentExp - finalExp;
         
-        const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${expCount}`, interaction.user);
-        await interaction.reply({ embeds: [embed] });
+        user.exp.exp = BigInt(finalExp);
+        const newLevel = getMaxLevelForExp(user.exp.exp);
+        
+        if (newLevel !== oldLevel) {
+          user.exp.level = newLevel;
+          await expRepository.save(user.exp);
+          
+          const levelDownMsg = `\nУровень пользователя понизился до ${newLevel}.`;
+          const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}${levelDownMsg}`, interaction.user);
+          await interaction.reply({ embeds: [embed] });
+        } else {
+          await expRepository.save(user.exp);
+          
+          const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}`, interaction.user);
+          await interaction.reply({ embeds: [embed] });
+        }
+        
+        logger.info(`У пользователя ${discordUser.id} вычтено ${actualDecrease} EXP, текущий уровень: ${newLevel}`);
       } else {
-        const embed = createErrorEmbed(`Пользователь <@${discordUser.id}> не найден или у него нет EXP`, interaction.user);
+        const embed = createErrorEmbed(`Пользователь <@${discordUser.id}> не найден или у него нет опыта`, interaction.user);
         await interaction.reply({ embeds: [embed] });
       }
     } catch (error) {
@@ -153,10 +212,44 @@ class ExpCommands {
     }
   }
 
+  @Slash({ description: "Check user EXP and level" })
+  @Guard(ChannelGuard("user_commands_channel"))
+  @EnsureUser()
+  async check(
+    @SlashOption({
+      description: "Выберите пользователя (не указывайте, чтобы проверить свой опыт)",
+      name: "user",
+      required: false,
+      type: ApplicationCommandOptionType.User
+    })
+    discordUser: DiscordUser | undefined,
+    interaction: CommandInteraction,
+  ) {
+    try {
+      const targetUser = discordUser || interaction.user;
+      const userRepository = AppDataSource.getRepository(User);
+
+      let user = await userRepository.findOne({
+        where: { discordId: targetUser.id },
+        relations: ["exp"]
+      });
+
+      const exp = user?.exp?.exp ?? BigInt(0);
+      const level = user?.exp?.level ?? 1;
+      
+      const embed = createExpEmbed(targetUser, exp, level, interaction.user);
+      await interaction.reply({ embeds: [embed] });
+    } catch (error) {
+      const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
+      await interaction.reply({ embeds: [embed] });
+      logger.error("Ошибка при проверке опыта: %O", error);
+    }
+  }
+
   @Slash({ description: "Show top users by total EXP" })
   @Guard(ChannelGuard("user_commands_channel"))
   async top(
-    @SlashOption({ 
+    @SlashOption({
       description: "Количество пользователей для отображения",
       name: "limit",
       required: false,
@@ -167,11 +260,11 @@ class ExpCommands {
   ) {
     try {
       if (limit <= 0 || limit > 25) {
-        limit = 10; 
+        limit = 10;
       }
 
       const expRepository = AppDataSource.getRepository(Exp);
-      
+
       const topUsers = await expRepository
         .createQueryBuilder("exp")
         .leftJoinAndSelect("exp.user", "user")
@@ -197,7 +290,7 @@ class ExpCommands {
   @Slash({ description: "Show top users by level" })
   @Guard(ChannelGuard("user_commands_channel"))
   async toplevels(
-    @SlashOption({ 
+    @SlashOption({
       description: "Количество пользователей для отображения",
       name: "limit",
       required: false,
@@ -208,16 +301,16 @@ class ExpCommands {
   ) {
     try {
       if (limit <= 0 || limit > 25) {
-        limit = 10; 
+        limit = 10;
       }
 
       const expRepository = AppDataSource.getRepository(Exp);
-      
+
       const topUsers = await expRepository
         .createQueryBuilder("exp")
         .leftJoinAndSelect("exp.user", "user")
         .orderBy("exp.level", "DESC")
-        .addOrderBy("exp.exp", "DESC") 
+        .addOrderBy("exp.exp", "DESC")
         .take(limit)
         .getMany();
 
@@ -233,6 +326,70 @@ class ExpCommands {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
       logger.error("Ошибка при получении топа пользователей по уровням: %O", error);
+    }
+  }
+
+  @Slash({ description: "Show user level progress" })
+  @Guard(ChannelGuard("user_commands_channel"))
+  @EnsureUser()
+  async level(
+    @SlashOption({
+      name: "user",
+      description: "Пользователь для прогресса уровня",
+      type: ApplicationCommandOptionType.User,
+      required: false
+    })
+    user: DiscordUser | undefined,
+    interaction: CommandInteraction
+  ) {
+    try {
+      await interaction.deferReply();
+      const targetUser = user ? await interaction.client.users.fetch(user.id) : interaction.user;
+      const userRepository = AppDataSource.getRepository(User);
+
+      const dbUser = await userRepository.findOne({
+        where: { discordId: targetUser.id },
+        relations: ["exp"]
+      });
+
+      const expValue = dbUser?.exp?.exp ?? BigInt(0);
+      const levelValue = dbUser?.exp?.level ?? 1;
+      
+      if (isMaxLevel(levelValue)) {
+        const embed = createExpEmbed(
+          targetUser,
+          expValue,
+          levelValue,
+          interaction.user
+        );
+        embed.setDescription(`<@${targetUser.id}> имеет **${expValue}** опыта и достиг максимального уровня!`);
+        
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+      
+      const nextLevelExp = calculateNextLevelExp(levelValue);
+      const daysToNext = getDaysToNextLevel(getExpToNextLevel(expValue, levelValue));
+      
+      const embed = createLevelProgressEmbed(
+        targetUser,
+        expValue,
+        levelValue,
+        nextLevelExp,
+        interaction.user
+      );
+      
+      embed.addFields({
+        name: "Примерное время до следующего уровня",
+        value: `Примерно **${daysToNext}** дней при активности 160 XP в день`,
+        inline: false
+      });
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      logger.error("Ошибка в команде level:", error);
+      const errorEmbed = createErrorEmbed("Произошла ошибка при получении данных об уровне", interaction.user);
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 }
