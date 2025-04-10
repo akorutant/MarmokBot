@@ -48,7 +48,7 @@ class CurrencyCommands {
                 relations: ["currency"]
             });
 
-            if (user && user.currency) {
+            if (user?.currency) {
                 user.currency.currencyCount = BigInt(currencyAmount);
                 await currencyRepository.save(user.currency);
                 logger.info(`Пользователю ${discordUser.id} установлено ${currencyAmount} валюты`);
@@ -92,7 +92,7 @@ class CurrencyCommands {
                 relations: ["currency"]
             });
 
-            if (user && user.currency) {
+            if (user?.currency) {
                 await currencyRepository.increment({ id: user.currency.id }, "currencyCount", currencyAmount);
                 logger.info(`Пользователю ${discordUser.id} добавлено ${currencyAmount} валюты`);
             }
@@ -135,7 +135,7 @@ class CurrencyCommands {
                 relations: ["currency"]
             });
 
-            if (user && user.currency) {
+            if (user?.currency) {
                 await currencyRepository.increment({ id: user.currency.id }, "currencyCount", -currencyAmount);
                 logger.info(`У пользователя ${discordUser.id} вычтено ${currencyAmount} валюты`);
             }
@@ -171,13 +171,9 @@ class CurrencyCommands {
                 relations: ["currency"]
             });
 
-            if (user && user.currency) {
-                const embed = createCurrencyBalanceEmbed(targetUser, user.currency.currencyCount, interaction.user);
-                await interaction.reply({ embeds: [embed] });
-            } else {
-                const embed = createErrorEmbed(`Пользователь <@${targetUser.id}> не найден или у него нет валюты`, interaction.user);
-                await interaction.reply({ embeds: [embed] });
-            }
+            const currencyCount = user?.currency?.currencyCount ?? BigInt(0);
+            const embed = createCurrencyBalanceEmbed(targetUser, currencyCount, interaction.user);
+            await interaction.reply({ embeds: [embed] });
         } catch (error) {
             const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
             await interaction.reply({ embeds: [embed] });
@@ -226,13 +222,7 @@ class CurrencyCommands {
                 relations: ["currency"]
             });
 
-            if (!sourceUser || !sourceUser.currency) {
-                const embed = createErrorEmbed("У вас нет валюты для перевода!", interaction.user);
-                await interaction.reply({ embeds: [embed] });
-                return;
-            }
-
-            if (sourceUser.currency.currencyCount < BigInt(currencyAmount)) {
+            if (!sourceUser?.currency || sourceUser.currency.currencyCount < BigInt(currencyAmount)) {
                 const embed = createErrorEmbed("У вас недостаточно валюты для этого перевода!", interaction.user);
                 await interaction.reply({ embeds: [embed] });
                 return;
@@ -243,57 +233,53 @@ class CurrencyCommands {
                 relations: ["currency"]
             });
 
-            if (!targetUser) {
-                targetUser = userRepository.create({
-                    discordId: targetDiscordUser.id,
-                    messageCount: 0n,
-                    voiceMinutes: 0n
+            // Если у целевого пользователя нет записи валюты, создаем ее
+            if (!targetUser?.currency) {
+                if (!targetUser) {
+                    targetUser = userRepository.create({
+                        discordId: targetDiscordUser.id,
+                        messageCount: BigInt(0),
+                        voiceMinutes: BigInt(0)
+                    });
+                    await userRepository.save(targetUser);
+                }
+                
+                const newCurrency = currencyRepository.create({
+                    currencyCount: BigInt(0),
+                    user: targetUser
                 });
-                await userRepository.save(targetUser);
+                await currencyRepository.save(newCurrency);
 
                 targetUser = await userRepository.findOne({
                     where: { discordId: targetDiscordUser.id },
                     relations: ["currency"]
                 });
             }
-            if (targetUser) {
-                if (!targetUser.currency) {
-                    const newCurrency = currencyRepository.create({
-                        currencyCount: 0n,
-                        user: targetUser
-                    });
-                    await currencyRepository.save(newCurrency);
 
-                    targetUser = await userRepository.findOne({
-                        where: { discordId: targetDiscordUser.id },
-                        relations: ["currency"]
-                    });
-                }
-            } else {
-                const embed = createErrorEmbed("Не удалось найти или создать пользователя!", interaction.user);
+            if (sourceUser?.currency && targetUser?.currency) {
+                await AppDataSource.transaction(async (transactionalEntityManager) => {
+                    await transactionalEntityManager.decrement(
+                        Currency,
+                        { id: sourceUser.currency.id },
+                        "currencyCount",
+                        currencyAmount
+                    );
+
+                    await transactionalEntityManager.increment(
+                        Currency,
+                        { id: targetUser.currency.id },
+                        "currencyCount",
+                        currencyAmount
+                    );
+                });
+
+                const embed = createSuccessEmbed(`Вы успешно перевели ${currencyAmount} валюты пользователю <@${targetDiscordUser.id}>!`, interaction.user);
                 await interaction.reply({ embeds: [embed] });
-                return;
+                logger.info(`Пользователь ${interaction.user.id} перевел ${currencyAmount} валюты пользователю ${targetDiscordUser.id}`);
+            } else {
+                const embed = createErrorEmbed("Ошибка при переводе. Попробуйте позже.", interaction.user);
+                await interaction.reply({ embeds: [embed] });
             }
-
-            await AppDataSource.transaction(async (transactionalEntityManager) => {
-                await transactionalEntityManager.decrement(
-                    Currency,
-                    { id: sourceUser.currency.id },
-                    "currencyCount",
-                    currencyAmount
-                );
-
-                await transactionalEntityManager.increment(
-                    Currency,
-                    { id: targetUser?.currency.id },
-                    "currencyCount",
-                    currencyAmount
-                );
-            });
-
-            const embed = createSuccessEmbed(`Вы успешно перевели ${currencyAmount} валюты пользователю <@${targetDiscordUser.id}>!`, interaction.user);
-            await interaction.reply({ embeds: [embed] });
-            logger.info(`Пользователь ${interaction.user.id} перевел ${currencyAmount} валюты пользователю ${targetDiscordUser.id}`);
         } catch (error) {
             const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
             await interaction.reply({ embeds: [embed] });
