@@ -1,5 +1,4 @@
 import { EmbedBuilder, User, Guild, ColorResolvable } from "discord.js";
-import { Dictionary } from "lodash";
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2, 
