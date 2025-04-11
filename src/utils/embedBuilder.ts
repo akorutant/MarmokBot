@@ -1,4 +1,5 @@
 import { EmbedBuilder, User, Guild, ColorResolvable } from "discord.js";
+import { Dictionary } from "lodash";
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2, 
@@ -7,7 +8,8 @@ export enum EmbedColors {
   ERROR = 0xED4245,   
   INFO = 0x5DADE2,    
   CURRENCY = 0xF1C40F, 
-  EXP = 0x9B59B6,     
+  EXP = 0x9B59B6,
+  GAME = 0xFCE83B
 }
 
 interface EmbedOptions {
@@ -319,6 +321,65 @@ export function createProfileEmbed(
     footer: {
       text: `ID: ${targetUser.id} • Запросил ${requestUser.username}`,
       iconURL: requestUser.displayAvatarURL()
+    },
+    fields: fields
+  });
+}
+
+export function createCoinflipEmbed( 
+  userBet: Number,
+  targetUser: User, 
+  userSide?: String,
+  winMoney?: Number,
+  result?: Number,
+  botSide?: String,
+): EmbedBuilder {
+  let coinDescription = "Монетка в воздухе...";
+  const fields = [];
+  
+  if (userSide !== undefined) {
+    if (userSide == "eagle") {
+      userSide = "Орёл";
+    } else {
+      userSide = "Решка"
+    }
+  }
+  
+  if (userBet !== undefined) {
+    
+    fields.push({
+      name: "Ваша ставка",
+      value: `${userSide}, ${userBet}$`,
+      inline: true
+    })
+  }
+
+  if (botSide !== undefined) {
+    if (botSide == "eagle") {
+      botSide = "орлом";
+    } else {
+      botSide = "решкой"
+    }
+    coinDescription = `Монетка упала ${botSide}`;
+  }
+
+  if (result == 1 && result !== undefined) {
+    fields.push({
+      name: "Вы выиграли!",
+      value: `Сумма выигрыша ${winMoney}$`,
+      inline: true
+    })
+  } 
+
+  return createEmbed({
+    title: `${targetUser.username} подбросил монетку!`,
+    description: coinDescription,
+    color: EmbedColors.GAME,
+    timestamp: true,
+    thumbnail: targetUser.displayAvatarURL(),
+    footer: {
+      text: `Играет ${targetUser.username}`,
+      iconURL: targetUser.displayAvatarURL()
     },
     fields: fields
   });
