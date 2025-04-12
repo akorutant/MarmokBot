@@ -7,17 +7,14 @@ import { Exp } from "../entities/Exp.js";
 import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
 import {
-  getExpForLevel,
   calculateNextLevelExp,
   getMaxLevelForExp,
   getExpToNextLevel,
-  getProgressToNextLevel,
   getDaysToNextLevel,
   isMaxLevel
 } from "../utils/levelUpUtils.js";
 
 import {
-  createEmbed,
   createErrorEmbed,
   createSuccessEmbed,
   createExpTopEmbed,
@@ -53,28 +50,22 @@ class ExpCommands {
     interaction: CommandInteraction,
   ) {
     try {
-      const userRepository = AppDataSource.getRepository(User);
       const expRepository = AppDataSource.getRepository(Exp);
 
-      let user = await userRepository.findOne({
+      const user = await AppDataSource.getRepository(User).findOneOrFail({
         where: { discordId: discordUser.id },
         relations: ["exp"]
       });
 
-      if (user?.exp) {
-        user.exp.exp = BigInt(expCount);
-        const newLevel = getMaxLevelForExp(user.exp.exp);
-        user.exp.level = newLevel;
-        
-        await expRepository.save(user.exp);
-        logger.info(`Пользователю ${discordUser.id} установлено ${expCount} EXP и уровень ${newLevel}`);
+      user.exp.exp = BigInt(expCount);
+      user.exp.level = getMaxLevelForExp(user.exp.exp);
+      
+      await expRepository.save(user.exp);
+      logger.info(`Пользователю ${discordUser.id} установлено ${expCount} EXP и уровень ${user.exp.level}`);
 
-        const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> установлено ${expCount} EXP (уровень ${user.exp.level})`, interaction.user);
-        await interaction.reply({ embeds: [embed] });
-      } else {
-        const embed = createErrorEmbed(`Пользователь <@${discordUser.id}> не найден или у него нет опыта`, interaction.user);
-        await interaction.reply({ embeds: [embed] });
-      }
+      const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> установлено ${expCount} EXP (уровень ${user.exp.level})`, interaction.user);
+      await interaction.reply({ embeds: [embed] });
+
     } catch (error) {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
@@ -103,44 +94,33 @@ class ExpCommands {
     interaction: CommandInteraction,
   ) {
     try {
-      const userRepository = AppDataSource.getRepository(User);
       const expRepository = AppDataSource.getRepository(Exp);
 
-      let user = await userRepository.findOne({
+      const user = await AppDataSource.getRepository(User).findOneOrFail({
         where: { discordId: discordUser.id },
         relations: ["exp"]
       });
 
-      if (user?.exp) {
-        const oldLevel = user.exp.level;
-        await expRepository.increment({ id: user.exp.id }, "exp", expCount);
+      const oldLevel = user.exp.level;
+      await expRepository.increment({ id: user.exp.id }, "exp", expCount);
+      
+      const newExp = await expRepository.findOneOrFail({ where: { id: user.exp.id } });
+      const newLevel = getMaxLevelForExp(newExp.exp);
+
+      if (newLevel !== oldLevel) {
+        user.exp.level = newLevel;
+        await expRepository.save(user.exp);
         
-        user = await userRepository.findOne({
-          where: { discordId: discordUser.id },
-          relations: ["exp"]
-        });
-        
-        if (user?.exp) {
-          const newLevel = getMaxLevelForExp(user.exp.exp);
-          
-          if (newLevel !== oldLevel) {
-            user.exp.level = newLevel;
-            await expRepository.save(user.exp);
-            
-            const levelUpMsg = `\nПользователь повысил уровень до ${newLevel}! 🎉`;
-            const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}${levelUpMsg}`, interaction.user);
-            await interaction.reply({ embeds: [embed] });
-          } else {
-            const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}`, interaction.user);
-            await interaction.reply({ embeds: [embed] });
-          }
-          
-          logger.info(`Пользователю ${discordUser.id} добавлено ${expCount} EXP, текущий уровень: ${newLevel}`);
-        }
+        const levelUpMsg = `\nПользователь повысил уровень до ${newLevel}! 🎉`;
+        const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}${levelUpMsg}`, interaction.user);
+        await interaction.reply({ embeds: [embed] });
       } else {
-        const embed = createErrorEmbed(`Пользователь <@${discordUser.id}> не найден или у него нет опыта`, interaction.user);
+        const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
       }
+      
+      logger.info(`Пользователю ${discordUser.id} добавлено ${expCount} EXP, текущий уровень: ${newLevel}`);
+
     } catch (error) {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
@@ -169,42 +149,36 @@ class ExpCommands {
     interaction: CommandInteraction,
   ) {
     try {
-      const userRepository = AppDataSource.getRepository(User);
       const expRepository = AppDataSource.getRepository(Exp);
 
-      let user = await userRepository.findOne({
+      const user = await AppDataSource.getRepository(User).findOneOrFail({
         where: { discordId: discordUser.id },
         relations: ["exp"]
       });
 
-      if (user?.exp) {
-        const currentExp = Number(user.exp.exp);
-        const oldLevel = user.exp.level;
-        const finalExp = Math.max(0, currentExp - expCount);
-        const actualDecrease = currentExp - finalExp;
+      const oldLevel = user.exp.level;
+      const currentExp = Number(user.exp.exp);
+      const finalExp = Math.max(0, currentExp - expCount);
+      const actualDecrease = currentExp - finalExp;
+      
+      user.exp.exp = BigInt(finalExp);
+      const newLevel = getMaxLevelForExp(user.exp.exp);
+      
+      if (newLevel !== oldLevel) {
+        user.exp.level = newLevel;
+        await expRepository.save(user.exp);
         
-        user.exp.exp = BigInt(finalExp);
-        const newLevel = getMaxLevelForExp(user.exp.exp);
-        
-        if (newLevel !== oldLevel) {
-          user.exp.level = newLevel;
-          await expRepository.save(user.exp);
-          
-          const levelDownMsg = `\nУровень пользователя понизился до ${newLevel}.`;
-          const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}${levelDownMsg}`, interaction.user);
-          await interaction.reply({ embeds: [embed] });
-        } else {
-          await expRepository.save(user.exp);
-          
-          const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}`, interaction.user);
-          await interaction.reply({ embeds: [embed] });
-        }
-        
-        logger.info(`У пользователя ${discordUser.id} вычтено ${actualDecrease} EXP, текущий уровень: ${newLevel}`);
+        const levelDownMsg = `\nУровень пользователя понизился до ${newLevel}.`;
+        const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}${levelDownMsg}`, interaction.user);
+        await interaction.reply({ embeds: [embed] });
       } else {
-        const embed = createErrorEmbed(`Пользователь <@${discordUser.id}> не найден или у него нет опыта`, interaction.user);
+        await expRepository.save(user.exp);
+        const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
       }
+      
+      logger.info(`У пользователя ${discordUser.id} вычтено ${actualDecrease} EXP, текущий уровень: ${newLevel}`);
+
     } catch (error) {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
@@ -227,18 +201,19 @@ class ExpCommands {
   ) {
     try {
       const targetUser = discordUser || interaction.user;
-      const userRepository = AppDataSource.getRepository(User);
-
-      let user = await userRepository.findOne({
+      const user = await AppDataSource.getRepository(User).findOneOrFail({
         where: { discordId: targetUser.id },
         relations: ["exp"]
       });
 
-      const exp = user?.exp?.exp ?? BigInt(0);
-      const level = user?.exp?.level ?? 1;
-      
-      const embed = createExpEmbed(targetUser, exp, level, interaction.user);
+      const embed = createExpEmbed(
+        targetUser,
+        user.exp.exp,
+        user.exp.level,
+        interaction.user
+      );
       await interaction.reply({ embeds: [embed] });
+
     } catch (error) {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
@@ -379,11 +354,6 @@ class ExpCommands {
         interaction.user
       );
       
-      embed.addFields({
-        name: "Примерное время до следующего уровня",
-        value: `Примерно **${daysToNext}** дней при активности 160 XP в день`,
-        inline: false
-      });
 
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {

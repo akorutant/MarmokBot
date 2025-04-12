@@ -1,5 +1,5 @@
 import { Discord, SlashGroup, Slash, SlashOption, SlashChoice } from "discordx";
-import { User as DiscordUser, CommandInteraction } from "discord.js";
+import { CommandInteraction } from "discord.js";
 import { ApplicationCommandOptionType } from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { Config } from "../entities/Config.js";
