@@ -1,28 +1,28 @@
-import { Discord, SlashGroup, Slash, SlashOption, Guard } from "discordx";
-import { CommandInteraction, User as DiscordUser, ApplicationCommandOptionType } from "discord.js";
+import { 
+  Discord, 
+  SlashGroup, 
+  Slash, 
+  SlashOption, 
+  Guard 
+} from "discordx";
+import { 
+  CommandInteraction, 
+  User as DiscordUser, 
+  ApplicationCommandOptionType 
+} from "discord.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { AppDataSource } from "../services/database.js";
 import { User } from "../entities/User.js";
 import { Exp } from "../entities/Exp.js";
 import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
-import {
-  calculateNextLevelExp,
-  getMaxLevelForExp,
-  getExpToNextLevel,
-  getDaysToNextLevel,
-  isMaxLevel
-} from "../utils/levelUpUtils.js";
-
+import { getMaxLevelForExp } from "../utils/levelUpUtils.js";
 import {
   createErrorEmbed,
   createSuccessEmbed,
   createExpTopEmbed,
-  createLevelTopEmbed,
-  createLevelProgressEmbed,
   createExpEmbed
 } from "../utils/embedBuilder.js";
-
 import logger from "../services/logger.js";
 
 @Discord()
@@ -186,41 +186,6 @@ class ExpCommands {
     }
   }
 
-  @Slash({ description: "Check user EXP and level" })
-  @Guard(ChannelGuard("user_commands_channel"))
-  @EnsureUser()
-  async check(
-    @SlashOption({
-      description: "Выберите пользователя (не указывайте, чтобы проверить свой опыт)",
-      name: "user",
-      required: false,
-      type: ApplicationCommandOptionType.User
-    })
-    discordUser: DiscordUser | undefined,
-    interaction: CommandInteraction,
-  ) {
-    try {
-      const targetUser = discordUser || interaction.user;
-      const user = await AppDataSource.getRepository(User).findOneOrFail({
-        where: { discordId: targetUser.id },
-        relations: ["exp"]
-      });
-
-      const embed = createExpEmbed(
-        targetUser,
-        user.exp.exp,
-        user.exp.level,
-        interaction.user
-      );
-      await interaction.reply({ embeds: [embed] });
-
-    } catch (error) {
-      const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
-      await interaction.reply({ embeds: [embed] });
-      logger.error("Ошибка при проверке опыта: %O", error);
-    }
-  }
-
   @Slash({ description: "Show top users by total EXP" })
   @Guard(ChannelGuard("user_commands_channel"))
   async top(
@@ -259,107 +224,6 @@ class ExpCommands {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
       logger.error("Ошибка при получении топа пользователей по опыту: %O", error);
-    }
-  }
-
-  @Slash({ description: "Show top users by level" })
-  @Guard(ChannelGuard("user_commands_channel"))
-  async toplevels(
-    @SlashOption({
-      description: "Количество пользователей для отображения",
-      name: "limit",
-      required: false,
-      type: ApplicationCommandOptionType.Number
-    })
-    limit: number = 10,
-    interaction: CommandInteraction,
-  ) {
-    try {
-      if (limit <= 0 || limit > 25) {
-        limit = 10;
-      }
-
-      const expRepository = AppDataSource.getRepository(Exp);
-
-      const topUsers = await expRepository
-        .createQueryBuilder("exp")
-        .leftJoinAndSelect("exp.user", "user")
-        .orderBy("exp.level", "DESC")
-        .addOrderBy("exp.exp", "DESC")
-        .take(limit)
-        .getMany();
-
-      if (topUsers.length === 0) {
-        const embed = createErrorEmbed("На сервере пока нет пользователей с уровнями!", interaction.user);
-        await interaction.reply({ embeds: [embed] });
-        return;
-      }
-
-      const embed = createLevelTopEmbed(topUsers, limit, interaction.user, interaction.guild);
-      await interaction.reply({ embeds: [embed] });
-    } catch (error) {
-      const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
-      await interaction.reply({ embeds: [embed] });
-      logger.error("Ошибка при получении топа пользователей по уровням: %O", error);
-    }
-  }
-
-  @Slash({ description: "Show user level progress" })
-  @Guard(ChannelGuard("user_commands_channel"))
-  @EnsureUser()
-  async level(
-    @SlashOption({
-      name: "user",
-      description: "Пользователь для прогресса уровня",
-      type: ApplicationCommandOptionType.User,
-      required: false
-    })
-    user: DiscordUser | undefined,
-    interaction: CommandInteraction
-  ) {
-    try {
-      await interaction.deferReply();
-      const targetUser = user ? await interaction.client.users.fetch(user.id) : interaction.user;
-      const userRepository = AppDataSource.getRepository(User);
-
-      const dbUser = await userRepository.findOne({
-        where: { discordId: targetUser.id },
-        relations: ["exp"]
-      });
-
-      const expValue = dbUser?.exp?.exp ?? BigInt(0);
-      const levelValue = dbUser?.exp?.level ?? 1;
-      
-      if (isMaxLevel(levelValue)) {
-        const embed = createExpEmbed(
-          targetUser,
-          expValue,
-          levelValue,
-          interaction.user
-        );
-        embed.setDescription(`<@${targetUser.id}> имеет **${expValue}** опыта и достиг максимального уровня!`);
-        
-        await interaction.editReply({ embeds: [embed] });
-        return;
-      }
-      
-      const nextLevelExp = calculateNextLevelExp(levelValue);
-      const daysToNext = getDaysToNextLevel(getExpToNextLevel(expValue, levelValue));
-      
-      const embed = createLevelProgressEmbed(
-        targetUser,
-        expValue,
-        levelValue,
-        nextLevelExp,
-        interaction.user
-      );
-      
-
-      await interaction.editReply({ embeds: [embed] });
-    } catch (error) {
-      logger.error("Ошибка в команде level:", error);
-      const errorEmbed = createErrorEmbed("Произошла ошибка при получении данных об уровне", interaction.user);
-      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 }

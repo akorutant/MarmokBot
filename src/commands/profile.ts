@@ -68,24 +68,6 @@ class ProfileCommand {
                 interaction.user
             );
             
-            if (!isMaxLevel(levelValue)) {
-                const nextLevelExp = calculateNextLevelExp(levelValue);
-                const progressPercent = getProgressToNextLevel(expValue, levelValue);
-                const expToNext = getExpToNextLevel(expValue, levelValue);
-                
-                embed.addFields({
-                    name: "📊 Прогресс до следующего уровня",
-                    value: `${expValue}/${nextLevelExp} (${progressPercent}%)\nНеобходимо еще: **${expToNext}** XP`,
-                    inline: false
-                });
-            } else {
-                embed.addFields({
-                    name: "🏆 Максимальный уровень",
-                    value: "Достигнут максимальный уровень 25!",
-                    inline: false
-                });
-            }
-
             await interaction.editReply({ embeds: [embed] });
             
         } catch (error) {

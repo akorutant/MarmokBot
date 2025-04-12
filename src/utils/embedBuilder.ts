@@ -1,12 +1,14 @@
 import { EmbedBuilder, User, Guild, ColorResolvable } from "discord.js";
+import { calculateNextLevelExp } from "./levelUpUtils.js";
+import { getHoursString } from "./hoursUtils.js";
 
 export enum EmbedColors {
-  DEFAULT = 0x5865F2, 
-  SUCCESS = 0x57F287, 
+  DEFAULT = 0x5865F2,
+  SUCCESS = 0x57F287,
   WARNING = 0xFEE75C,
-  ERROR = 0xED4245,   
-  INFO = 0x5DADE2,    
-  CURRENCY = 0xF1C40F, 
+  ERROR = 0xED4245,
+  INFO = 0x5DADE2,
+  CURRENCY = 0xF1C40F,
   EXP = 0x9B59B6,
   GAME = 0xFCE83B
 }
@@ -41,14 +43,14 @@ export function createEmbed(options: EmbedOptions): EmbedBuilder {
   if (options.description) embed.setDescription(options.description);
   if (options.timestamp) embed.setTimestamp();
   if (options.thumbnail) embed.setThumbnail(options.thumbnail);
-  
+
   if (options.footer) {
     embed.setFooter({
       text: options.footer.text,
       iconURL: options.footer.iconURL
     });
   }
-  
+
   if (options.author) {
     embed.setAuthor({
       name: options.author.name,
@@ -56,11 +58,11 @@ export function createEmbed(options: EmbedOptions): EmbedBuilder {
       url: options.author.url
     });
   }
-  
+
   if (options.fields && options.fields.length > 0) {
     embed.addFields(options.fields);
   }
-  
+
   return embed;
 }
 
@@ -91,20 +93,20 @@ export function createSuccessEmbed(message: string, user?: User): EmbedBuilder {
 }
 
 export function createCurrencyTopEmbed(
-  topUsers: Array<{user: {discordId: string}, currencyCount: bigint}>, 
-  limit: number, 
-  requestUser: User, 
+  topUsers: Array<{ user: { discordId: string }, currencyCount: bigint }>,
+  limit: number,
+  requestUser: User,
   guild?: Guild | null
 ): EmbedBuilder {
   const medals = ['🥇', '🥈', '🥉'];
-  
+
   let topList = '';
   for (let i = 0; i < topUsers.length; i++) {
     const user = topUsers[i];
     const prefix = i < 3 ? medals[i] : `${i + 1}.`;
     topList += `${prefix} <@${user.user.discordId}> — **${user.currencyCount}** 💰\n`;
   }
-  
+
   return createEmbed({
     title: `🏆 Топ ${limit} пользователей по валюте`,
     description: 'Самые богатые пользователи сервера',
@@ -125,20 +127,20 @@ export function createCurrencyTopEmbed(
 }
 
 export function createExpTopEmbed(
-  topUsers: Array<{user: {discordId: string}, exp: bigint, level: number}>, 
-  limit: number, 
-  requestUser: User, 
+  topUsers: Array<{ user: { discordId: string }, exp: bigint, level: number }>,
+  limit: number,
+  requestUser: User,
   guild?: Guild | null
 ): EmbedBuilder {
   const medals = ['🥇', '🥈', '🥉'];
-  
+
   let topList = '';
   for (let i = 0; i < topUsers.length; i++) {
     const user = topUsers[i];
     const prefix = i < 3 ? medals[i] : `${i + 1}.`;
     topList += `${prefix} <@${user.user.discordId}> — **${user.exp}** XP (уровень ${user.level})\n`;
   }
-  
+
   return createEmbed({
     title: `🌟 Топ ${limit} пользователей по опыту`,
     description: 'Самые опытные пользователи сервера',
@@ -153,40 +155,6 @@ export function createExpTopEmbed(
       {
         name: 'Рейтинг по опыту',
         value: topList || 'Пока никто не заработал опыт'
-      }
-    ]
-  });
-}
-
-export function createLevelTopEmbed(
-  topUsers: Array<{user: {discordId: string}, exp: bigint, level: number}>, 
-  limit: number, 
-  requestUser: User, 
-  guild?: Guild | null
-): EmbedBuilder {
-  const medals = ['🥇', '🥈', '🥉'];
-  
-  let topList = '';
-  for (let i = 0; i < topUsers.length; i++) {
-    const user = topUsers[i];
-    const prefix = i < 3 ? medals[i] : `${i + 1}.`;
-    topList += `${prefix} <@${user.user.discordId}> — **Уровень ${user.level}** (${user.exp} XP)\n`;
-  }
-  
-  return createEmbed({
-    title: `⭐ Топ ${limit} пользователей по уровням`,
-    description: 'Самые высокоуровневые пользователи сервера',
-    color: EmbedColors.EXP,
-    timestamp: true,
-    thumbnail: guild?.iconURL() || undefined,
-    footer: {
-      text: `Запросил ${requestUser.username}`,
-      iconURL: requestUser.displayAvatarURL()
-    },
-    fields: [
-      {
-        name: 'Рейтинг по уровням',
-        value: topList || 'Пока никто не заработал уровни'
       }
     ]
   });
@@ -227,51 +195,18 @@ export function createExpEmbed(targetUser: User, exp: bigint, level: number, req
   });
 }
 
-export function createLevelProgressEmbed(targetUser: User, exp: bigint, level: number, nextLevelExp: bigint, requestUser: User): EmbedBuilder {
-  const currentExp = exp;
-  const remainingExp = nextLevelExp - currentExp;
-  const progressPercentage = Number((Number(currentExp) / Number(nextLevelExp) * 100).toFixed(1));
-  
-  const progressBarTotal = 20; 
-  const filledBlocks = Math.floor(progressPercentage / 100 * progressBarTotal);
-  const emptyBlocks = progressBarTotal - filledBlocks;
-  const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
-  
-  return createEmbed({
-    title: `📊 Прогресс до следующего уровня`,
-    description: `<@${targetUser.id}> сейчас на **${level}** уровне`,
-    color: EmbedColors.EXP,
-    timestamp: true,
-    thumbnail: targetUser.displayAvatarURL(),
-    footer: {
-      text: `Запросил ${requestUser.username}`,
-      iconURL: requestUser.displayAvatarURL()
-    },
-    fields: [
-      {
-        name: 'Текущий опыт',
-        value: `${currentExp}/${nextLevelExp} (${progressPercentage}%)`,
-        inline: false
-      },
-      {
-        name: 'Прогресс до уровня ' + (level + 1),
-        value: `${progressBar}\nНеобходимо еще: **${remainingExp}** опыта`,
-        inline: false
-      }
-    ]
-  });
-}
 
 export function createProfileEmbed(
-  targetUser: User, 
-  messageCount: bigint, 
-  voiceMinutes: bigint, 
+  targetUser: User,
+  messageCount: bigint,
+  voiceMinutes: bigint,
   exp: bigint | undefined,
   level: number | undefined,
   currency: bigint | undefined,
   requestUser: User
 ): EmbedBuilder {
   const voiceHours = Math.round(Number(voiceMinutes) / 6) / 10;
+  const hoursString = getHoursString(voiceHours);
   const fields = [];
   
   if (level !== undefined) {
@@ -281,7 +216,7 @@ export function createProfileEmbed(
       inline: true
     });
   }
-  
+
   if (exp !== undefined) {
     fields.push({
       name: "🌟 Опыт",
@@ -289,7 +224,7 @@ export function createProfileEmbed(
       inline: true
     });
   }
-  
+
   fields.push(
     {
       name: "📝 Сообщений",
@@ -298,11 +233,11 @@ export function createProfileEmbed(
     },
     {
       name: "🎙️ В голосовых каналах",
-      value: `${voiceHours} часов`,
+      value: `${voiceHours} ${hoursString}`,
       inline: true
     }
   );
-  
+
   if (currency !== undefined) {
     fields.push({
       name: "💰 Баланс",
@@ -310,24 +245,44 @@ export function createProfileEmbed(
       inline: true
     });
   }
+
+  if (exp !== undefined && level !== undefined) {
+    if (level < 20) {
+      const nextLevelExp = calculateNextLevelExp(level);
+      const remainingExp = nextLevelExp - exp;
+      const progressPercentage = Number((Number(exp) / Number(nextLevelExp) * 100).toFixed(1));
   
+      const progressBarTotal = 20;
+      const filledBlocks = Math.floor(Number(progressPercentage) / 100 * progressBarTotal);
+      const emptyBlocks = progressBarTotal - filledBlocks;
+      const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
+  
+      fields.push(
+        {
+          name: "📊 Прогресс",
+          value: `${progressBar}\n${progressPercentage}% до уровня ${level + 1}`,
+          inline: false
+        }
+      ); 
+    }
+  }
+
   return createEmbed({
-    title: `Профиль пользователя ${targetUser.username}`,
-    description: `Статистика активности <@${targetUser.id}> на сервере`,
+    title: `Профиль ${targetUser.username}`,
+    description: `Статистика пользователя <@${targetUser.id}>`,
     color: EmbedColors.INFO,
     timestamp: true,
     thumbnail: targetUser.displayAvatarURL(),
     footer: {
-      text: `ID: ${targetUser.id} • Запросил ${requestUser.username}`,
+      text: `Запросил ${requestUser.username}`,
       iconURL: requestUser.displayAvatarURL()
     },
     fields: fields
   });
 }
-
-export function createCoinflipEmbed( 
+export function createCoinflipEmbed(
   userBet: Number,
-  targetUser: User, 
+  targetUser: User,
   userSide?: String,
   winMoney?: Number,
   result?: Number,
@@ -335,7 +290,7 @@ export function createCoinflipEmbed(
 ): EmbedBuilder {
   let coinDescription = "Монетка в воздухе...";
   const fields = [];
-  
+
   if (userSide !== undefined) {
     if (userSide == "eagle") {
       userSide = "Орёл";
@@ -343,9 +298,9 @@ export function createCoinflipEmbed(
       userSide = "Решка"
     }
   }
-  
+
   if (userBet !== undefined) {
-    
+
     fields.push({
       name: "Ваша ставка",
       value: `${userSide}, ${userBet}$`,
@@ -368,7 +323,7 @@ export function createCoinflipEmbed(
       value: `Сумма выигрыша ${winMoney}$`,
       inline: true
     })
-  } 
+  }
 
   return createEmbed({
     title: `${targetUser.username} подбросил монетку!`,

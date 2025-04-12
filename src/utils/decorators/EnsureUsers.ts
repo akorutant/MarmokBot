@@ -7,6 +7,7 @@ import logger from "../../services/logger.js";
 /**
  * Декоратор, гарантирующий существование пользователя в базе данных.
  * Если пользователь не существует, создает его с указанными сущностями.
+ * Боты не будут добавлены в базу данных.
  * @param options Опции для создания пользователя
  */
 export function EnsureUser(options: {
@@ -23,24 +24,34 @@ export function EnsureUser(options: {
 
     descriptor.value = async function (...args: any[]) {
       let discordId: string | undefined;
+      let isBot: boolean = false;
       
       if (args[0]?.author?.id) {
         discordId = args[0].author.id;
+        isBot = args[0].author.bot === true;
       } 
       else if (args[0]?.[0]?.member?.id || args[0]?.[1]?.member?.id) {
         discordId = (args[0][1]?.member?.id || args[0][0]?.member?.id);
+        isBot = (args[0][1]?.member?.user?.bot === true || args[0][0]?.member?.user?.bot === true);
       } 
       else if (args.find(arg => arg?.user?.id || arg?.member?.id)) {
         const interaction = args.find(arg => arg?.user?.id || arg?.member?.id);
         discordId = interaction.user?.id || interaction.member?.id;
+        isBot = interaction.user?.bot === true || interaction.member?.user?.bot === true;
       }
       else if (args.find(arg => arg?.id && typeof arg.id === 'string')) {
         const userArg = args.find(arg => arg?.id && typeof arg.id === 'string');
         discordId = userArg.id;
+        isBot = userArg.bot === true;
       }
 
       if (!discordId) {
         logger.warn(`EnsureUser: Не удалось определить ID пользователя в ${propertyKey}`);
+        return originalMethod.apply(this, args);
+      }
+
+      if (isBot) {
+        logger.debug(`EnsureUser: Пользователь ${discordId} является ботом, пропускаем`);
         return originalMethod.apply(this, args);
       }
 
