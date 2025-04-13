@@ -24,4 +24,11 @@ export async function seedDefaultConfigs() {
     } catch (error) {
         logger.error("Ошибка сидирования дефолтных конфигов:", error);
     }
+    AppDataSource.initialize()
+        .then(() => {
+            AppDataSource.entityMetadatas.forEach(metadata => {
+                console.log(`Loaded entity: ${metadata.name}`);
+            });
+        })
+        .catch(error => logger.error("Ошибка сидирования дефолтных конфигов:", error));
 }
