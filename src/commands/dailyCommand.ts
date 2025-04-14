@@ -1,5 +1,4 @@
 import { Discord, Slash, Guard } from "discordx";
-import { RateLimit, TIME_UNIT } from "@discordx/utilities"
 import { CommandInteraction } from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { User as DBUser } from "../entities/User.js";
@@ -8,6 +7,7 @@ import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
 import { createErrorEmbed } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
 import { Currency } from "../entities/Currency.js";
+import { Cooldown } from "../utils/decorators/CoommandCooldown.js";
 
 const currentDate = Math.floor(new Date().getTime() / 1000);
 
@@ -15,12 +15,9 @@ const currentDate = Math.floor(new Date().getTime() / 1000);
 class DailyCommand {
     @Slash({ description: "Получить ежедневную награду" })
     @Guard(
-        RateLimit(TIME_UNIT.days, 1, {
-          message: `Вы уже получили ежедневную награду. Приходите через <t:${currentDate + 86400}:R>`,
-          rateValue: 1,
-        }),
-      )
-    @Guard(ChannelGuard("user_commands_channel"))
+        Cooldown({days: 1}),
+        ChannelGuard("user_commands_channel")
+    )
     @EnsureUser()
     async daily(
         interaction: CommandInteraction
