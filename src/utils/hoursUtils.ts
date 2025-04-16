@@ -21,3 +21,4 @@ export function getHoursString(hours: number): string {
 
   return "часов";
 }
+
