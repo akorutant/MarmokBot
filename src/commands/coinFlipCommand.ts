@@ -1,5 +1,4 @@
 import { Discord, Slash, SlashOption, Guard, SlashChoice } from "discordx";
-import { RateLimit, TIME_UNIT } from "@discordx/utilities"
 import { CommandInteraction, ApplicationCommandOptionType } from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { User } from "../entities/User.js";
@@ -7,20 +6,18 @@ import { Currency } from "../entities/Currency.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
 import { createErrorEmbed, createCoinflipEmbed } from "../utils/embedBuilder.js";
+import { CheckMoney } from "../utils/decorators/CheckMoney.js";
+import { Cooldown } from "../utils/decorators/CoommandCooldown.js";
 import logger from "../services/logger.js";
-
-const currentDate = Math.floor(new Date().getTime() / 1000)
 
 @Discord()
 class CoinflipCommand {
-    @Slash({ description: "Подкинуть монетку" })
+    @Slash({ description: "Подкинуть монетку"})
     @Guard(
-        RateLimit(TIME_UNIT.hours, 1, {
-          message: `Вы уже сыграли. Приходите через <t:${currentDate + 3600}:R>`,
-          rateValue: 1,
-        }),
-      )
-    @Guard(ChannelGuard("user_commands_channel"))
+        ChannelGuard("user_commands_channel"),
+        CheckMoney(),
+        Cooldown({hours: 1})
+    )
     @EnsureUser()
     async coin(
         @SlashChoice({ name: "Орел", value: "eagle"})
@@ -34,7 +31,7 @@ class CoinflipCommand {
         side: string,
         @SlashOption({
             name: "bet",
-            description: "Подкинуть монетку",
+            description: "Сумма ставки",
             minValue: 50,
             maxValue: 500,
             type: ApplicationCommandOptionType.Number,
@@ -52,53 +49,35 @@ class CoinflipCommand {
                 relations: ["currency"]
             });
 
-            const ensuredUser = user!;
-            const ensuredCurrency = ensuredUser.currency!;
-
-            if (ensuredCurrency.currencyCount < BigInt(bet)) {
-                await interaction.reply({content: "У вас нет столько денег.", ephemeral: true});
-                return;
+            if (!user || !user.currency) {
+                throw new Error("User not found");
             }
 
             const sides = ["eagle", "reshka"];
-            const userBet = bet;
-            const userSide = side;
             const botSide = sides[Math.floor(Math.random() * sides.length)];
+            const isWin = botSide === side;
 
-            const embed_start = createCoinflipEmbed(
-                userBet,
+            const embed = createCoinflipEmbed(
+                bet,
                 interaction.user,
-                userSide
-            );
-            await interaction.reply({ embeds: [embed_start]});
-
-            let result = 0;
-            let winMoney = 0;
-            if (botSide === userSide) {
-                result = 1;
-                winMoney = Math.floor(userBet * 2 - ((userBet * 2) * 0.07));
-
-                ensuredCurrency.currencyCount += BigInt(winMoney);
-                await currencyRepository.save(ensuredCurrency);
-                logger.info(`Пользователь ${interaction.user.id} выиграл в монетку ${winMoney} валюты`);
-            } else {
-                ensuredCurrency.currencyCount -= BigInt(userBet);
-                await currencyRepository.save(ensuredCurrency);
-                logger.info(`Пользователь ${interaction.user.id} проиграл в монетку ${userBet} валюты`);
-            }
-
-            const embed_finish = createCoinflipEmbed(
-                userBet,
-                interaction.user,
-                userSide,
-                winMoney,
-                result,
+                side,
+                isWin ? Math.floor(bet * 1.93) : 0,
+                isWin ? 1 : 0,
                 botSide
             );
-            await interaction.editReply({ embeds: [embed_finish]});
+
+            if (isWin) {
+                user.currency.currencyCount += BigInt(Math.floor(bet * 1.93));
+            } else {
+                user.currency.currencyCount -= BigInt(bet);
+            }
+
+            await currencyRepository.save(user.currency);
+            await interaction.reply({ embeds: [embed] });
+
         } catch (error) {
-            logger.error("Ошибка в команде coin:", error);
-            const errorEmbed = createErrorEmbed("Произошла ошибка при получении данных", interaction.user);
+            logger.error("Ошибка в команде coinflip:", error);
+            const errorEmbed = createErrorEmbed("Произошла ошибка", interaction.user);
             await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
