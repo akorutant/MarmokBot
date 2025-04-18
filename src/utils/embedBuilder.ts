@@ -208,7 +208,7 @@ export function createProfileEmbed(
   const voiceHours = Math.round(Number(voiceMinutes) / 6) / 10;
   const hoursString = getHoursString(voiceHours);
   const fields = [];
-  
+
   if (level !== undefined) {
     fields.push({
       name: "⭐ Уровень",
@@ -251,19 +251,19 @@ export function createProfileEmbed(
       const nextLevelExp = calculateNextLevelExp(level);
       const remainingExp = nextLevelExp - exp;
       const progressPercentage = Number((Number(exp) / Number(nextLevelExp) * 100).toFixed(1));
-  
+
       const progressBarTotal = 20;
       const filledBlocks = Math.floor(Number(progressPercentage) / 100 * progressBarTotal);
       const emptyBlocks = progressBarTotal - filledBlocks;
       const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
-  
+
       fields.push(
         {
           name: "📊 Прогресс",
           value: `${progressBar}\n${progressPercentage}% до уровня ${level + 1}`,
           inline: false
         }
-      ); 
+      );
     }
   }
 
@@ -334,6 +334,53 @@ export function createCoinflipEmbed(
     footer: {
       text: `Играет ${targetUser.username}`,
       iconURL: targetUser.displayAvatarURL()
+    },
+    fields: fields
+  });
+}
+
+export function createDuelEmbed(
+  userBet: Number,
+  executeUser: User,
+  targetUser?: User,
+  winMoney?: Number,
+  winUser?: User,
+): EmbedBuilder {
+  let duelDescription = "Вы можете принять дуэль кнопкой ниже";
+  const fields = [];
+
+  if (userBet !== undefined) {
+    fields.push({
+      name: "Ваша ставка",
+      value: `${userBet}$`,
+      inline: true
+    })
+  }
+
+  if (winUser !== undefined) {
+    fields.push({
+      name: "Победитель",
+      value: `${winUser}`,
+      inline: true
+    })
+  }
+  if (winUser !== undefined) {
+    fields.push({
+      name: "Сумма выигрыша",
+      value: `${winMoney}$`,
+      inline: true
+    })
+  }
+
+  return createEmbed({
+    title: `${executeUser.username} назначил дуэль`,
+    description: duelDescription,
+    color: EmbedColors.GAME,
+    timestamp: true,
+    thumbnail: executeUser.displayAvatarURL(),
+    footer: {
+      text: `Играет ${executeUser.username}`,
+      iconURL: executeUser.displayAvatarURL()
     },
     fields: fields
   });

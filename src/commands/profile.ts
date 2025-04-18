@@ -5,10 +5,11 @@ import { User as DBUser } from "../entities/User.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
 import { createErrorEmbed } from "../utils/embedBuilder.js";
-import { 
-  getMaxLevelForExp, 
-  getProgressToNextLevel, 
-  isMaxLevel 
+import {
+    calculateNextLevelExp,
+    getMaxLevelForExp,
+    getProgressToNextLevel,
+    isMaxLevel
 } from "../utils/levelUpUtils.js";
 import { generateProfileImage } from "../utils/profileImageGenerator.js";
 import logger from "../services/logger.js";
@@ -30,11 +31,11 @@ class ProfileCommand {
     ) {
         try {
             await interaction.deferReply();
-            
+
             // Get target user
             const targetUser = user ? await interaction.client.users.fetch(user.id) : interaction.user;
             logger.info(`Generating profile for user: ${targetUser.tag} (${targetUser.id})`);
-            
+
             // Get user data from database
             const userRepository = AppDataSource.getRepository(DBUser);
             const dbUser = await userRepository.findOne({
@@ -47,25 +48,25 @@ class ProfileCommand {
             const voiceMinutes = dbUser?.voiceMinutes ?? BigInt(0);
             const expValue = dbUser?.exp?.exp ?? BigInt(0);
             const currencyValue = dbUser?.currency?.currencyCount ?? BigInt(0);
-            
+
             // Get or correct level value
             let levelValue = dbUser?.exp?.level ?? 1;
             const calculatedLevel = getMaxLevelForExp(expValue);
-            
+
             if (levelValue !== calculatedLevel && dbUser?.exp) {
                 levelValue = calculatedLevel;
                 dbUser.exp.level = levelValue;
                 await AppDataSource.getRepository(dbUser.exp.constructor).save(dbUser.exp);
                 logger.info(`Скорректирован уровень пользователя ${targetUser.id}: ${levelValue}`);
             }
-            
-            let progressPercent = 0;
+            const nextLevelExp = calculateNextLevelExp(levelValue);
+            let progressPercentage = 0;
             if (!isMaxLevel(levelValue)) {
-                progressPercent = getProgressToNextLevel(expValue, levelValue);
+                progressPercentage = Number((Number(expValue) / Number(nextLevelExp) * 100).toFixed(1));
             }
-            
-            logger.info(`User stats - Messages: ${messageCount}, Voice: ${voiceMinutes}, Level: ${levelValue}, Progress: ${progressPercent}%`);
-            
+
+            logger.info(`User stats - Messages: ${messageCount}, Voice: ${voiceMinutes}, Level: ${levelValue}, Progress: ${progressPercentage}%`);
+
             // Generate profile image
             try {
                 const profileImage = await generateProfileImage(
@@ -74,9 +75,9 @@ class ProfileCommand {
                     Number(voiceMinutes),
                     levelValue,
                     Number(currencyValue),
-                    progressPercent
+                    progressPercentage
                 );
-                
+
                 const attachment = new AttachmentBuilder(profileImage, { name: 'profile.png' });
                 await interaction.editReply({ files: [attachment] });
                 logger.info(`Profile image sent successfully for ${targetUser.tag}`);

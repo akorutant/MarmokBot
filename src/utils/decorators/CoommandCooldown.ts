@@ -16,14 +16,14 @@ interface CooldownOptions {
 export function Cooldown(options: CooldownOptions | number): GuardFunction<CommandInteraction> {
     return async (interaction, _, next) => {
         let totalSeconds = 0;
-        
+
         if (typeof options === "number") {
             totalSeconds = options;
         } else {
-            totalSeconds = 
-                (options.seconds || 0) + 
-                (options.minutes || 0) * 60 + 
-                (options.hours || 0) * 3600 + 
+            totalSeconds =
+                (options.seconds || 0) +
+                (options.minutes || 0) * 60 +
+                (options.hours || 0) * 3600 +
                 (options.days || 0) * 86400;
         }
 
@@ -45,13 +45,13 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
             if (elapsedSeconds < totalSeconds) {
                 const remaining = totalSeconds - elapsedSeconds;
                 const timeString = formatTime(remaining);
-                
+
                 const defaultMessage = `⏳ Эта команда на кулдауне. Попробуйте через ${timeString}`;
                 const customMessage = typeof options === "object" ? options.message : undefined;
-                
+
                 await interaction.reply({
-                    content: customMessage 
-                        ? customMessage.replace("{time}", timeString) 
+                    content: customMessage
+                        ? customMessage.replace("{time}", timeString)
                         : defaultMessage,
                     ephemeral: true
                 });

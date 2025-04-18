@@ -20,19 +20,19 @@ interface HasDiscordClient {
 }
 
 export function CheckLevelUp() {
-    return function(
+    return function (
         target: any,
         propertyKey: string,
         descriptor: PropertyDescriptor
     ) {
         const originalMethod = descriptor.value;
 
-        descriptor.value = async function(this: HasDiscordClient, ...args: any[]) {
+        descriptor.value = async function (this: HasDiscordClient, ...args: any[]) {
             const result = await originalMethod.apply(this, args);
 
             try {
                 let userId: string;
-                
+
                 if (propertyKey === "onMessage" && args[0] && args[0][0] && args[0][0].author) {
                     userId = args[0][0].author.id;
                 } else if (propertyKey === "onVoiceStateUpdate" && args[0] && args[0][1] && args[0][1].id) {
@@ -44,7 +44,7 @@ export function CheckLevelUp() {
                 }
 
                 const expRepository = AppDataSource.getRepository(Exp);
-                
+
                 const expRecord = await expRepository.findOne({
                     where: { user: { discordId: userId } },
                     relations: ["user"]
@@ -56,7 +56,7 @@ export function CheckLevelUp() {
 
                 const currentLevel = expRecord.level;
                 const maxLevel = getMaxLevelForExp(expRecord.exp, currentLevel);
-                
+
                 if (maxLevel > currentLevel) {
                     expRecord.level = maxLevel;
                     await expRepository.save(expRecord);
@@ -68,7 +68,7 @@ export function CheckLevelUp() {
 
                     try {
                         const client = this.client || _discordClient;
-                        
+
                         if (client && client.users) {
                             const user = await client.users.fetch(userId);
                             if (user) {

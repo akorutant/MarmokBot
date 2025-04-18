@@ -12,16 +12,16 @@ import logger from "../services/logger.js";
 
 @Discord()
 class CoinflipCommand {
-    @Slash({ description: "Подкинуть монетку"})
+    @Slash({ description: "Подкинуть монетку" })
     @Guard(
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
-        Cooldown({hours: 1})
+        Cooldown({ seconds: 30 })
     )
     @EnsureUser()
     async coin(
-        @SlashChoice({ name: "Орел", value: "eagle"})
-        @SlashChoice({ name: "Решка", value: "reshka"})
+        @SlashChoice({ name: "Орел", value: "eagle" })
+        @SlashChoice({ name: "Решка", value: "reshka" })
         @SlashOption({
             name: "side",
             description: "Выберите сторону",
@@ -43,7 +43,7 @@ class CoinflipCommand {
         try {
             const userRepository = AppDataSource.getRepository(User);
             const currencyRepository = AppDataSource.getRepository(Currency);
-            
+
             const user = await userRepository.findOne({
                 where: { discordId: interaction.user.id },
                 relations: ["currency"]

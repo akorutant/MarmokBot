@@ -11,9 +11,9 @@ import logger from "../../services/logger.js";
  * @param options Опции для создания пользователя
  */
 export function EnsureUser(options: {
-  createExp?: boolean; 
+  createExp?: boolean;
   createCurrency?: boolean;
-  relations?: string[]; 
+  relations?: string[];
 } = { createExp: true, createCurrency: true, relations: ["exp", "currency"] }) {
   return function (
     target: any,
@@ -25,15 +25,15 @@ export function EnsureUser(options: {
     descriptor.value = async function (...args: any[]) {
       let discordId: string | undefined;
       let isBot: boolean = false;
-      
+
       if (args[0]?.author?.id) {
         discordId = args[0].author.id;
         isBot = args[0].author.bot === true;
-      } 
+      }
       else if (args[0]?.[0]?.member?.id || args[0]?.[1]?.member?.id) {
         discordId = (args[0][1]?.member?.id || args[0][0]?.member?.id);
         isBot = (args[0][1]?.member?.user?.bot === true || args[0][0]?.member?.user?.bot === true);
-      } 
+      }
       else if (args.find(arg => arg?.user?.id || arg?.member?.id)) {
         const interaction = args.find(arg => arg?.user?.id || arg?.member?.id);
         discordId = interaction.user?.id || interaction.member?.id;
@@ -67,7 +67,7 @@ export function EnsureUser(options: {
 
         if (!user) {
           logger.info(`EnsureUser: Создание нового пользователя ${discordId}`);
-          
+
           user = userRepository.create({
             discordId,
             messageCount: 0n,
@@ -76,19 +76,19 @@ export function EnsureUser(options: {
           await userRepository.save(user);
 
           if (options.createExp) {
-            const newExp = expRepository.create({ 
-              exp: 0n, 
+            const newExp = expRepository.create({
+              exp: 0n,
               level: 1,
-              user 
+              user
             });
             await expRepository.save(newExp);
             logger.debug(`EnsureUser: Создана запись опыта для пользователя ${discordId}`);
           }
 
           if (options.createCurrency) {
-            const newCurrency = currencyRepository.create({ 
-              currencyCount: 0n, 
-              user 
+            const newCurrency = currencyRepository.create({
+              currencyCount: 0n,
+              user
             });
             await currencyRepository.save(newCurrency);
             logger.debug(`EnsureUser: Создана запись валюты для пользователя ${discordId}`);
@@ -96,19 +96,19 @@ export function EnsureUser(options: {
         }
         else {
           if (options.createExp && options.relations?.includes("exp") && !user.exp) {
-            const newExp = expRepository.create({ 
-              exp: 0n, 
+            const newExp = expRepository.create({
+              exp: 0n,
               level: 1,
-              user 
+              user
             });
             await expRepository.save(newExp);
             logger.debug(`EnsureUser: Добавлена отсутствующая запись опыта для существующего пользователя ${discordId}`);
           }
 
           if (options.createCurrency && options.relations?.includes("currency") && !user.currency) {
-            const newCurrency = currencyRepository.create({ 
-              currencyCount: 0n, 
-              user 
+            const newCurrency = currencyRepository.create({
+              currencyCount: 0n,
+              user
             });
             await currencyRepository.save(newCurrency);
             logger.debug(`EnsureUser: Добавлена отсутствующая запись валюты для существующего пользователя ${discordId}`);

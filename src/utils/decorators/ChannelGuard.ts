@@ -8,7 +8,7 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
   return async (interaction, client, next) => {
     try {
       const configRepository = AppDataSource.getRepository(Config);
-      
+
       const configs = await configRepository.find({
         where: { key: configKey }
       });
