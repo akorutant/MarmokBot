@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { isMaxLevel } from './levelUpUtils.js';
 import logger from '../services/logger.js';
+import { getHoursString } from './hoursUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,25 +59,6 @@ if (ctxProto && !ctxProto.roundRect) {
     this.closePath();
     return this;
   };
-}
-
-/**
- * Возвращает склонение слова "час" в зависимости от числа
- */
-function getHoursString(hours: number): string {
-  const absHours = Math.abs(hours);
-  const lastDigit = absHours % 10;
-  const lastTwoDigits = absHours % 100;
-  
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
-    return 'часов';
-  } else if (lastDigit === 1) {
-    return 'час';
-  } else if (lastDigit >= 2 && lastDigit <= 4) {
-    return 'часа';
-  } else {
-    return 'часов';
-  }
 }
 
 /**
@@ -156,7 +138,7 @@ function createErrorCanvas(): Buffer {
  */
 async function drawBackground(ctx: any, canvas: any) {
   try {
-    const bgPath = path.join(__dirname, '../../assets/images/marmok_background.png');
+    const bgPath = path.join(__dirname, '../../assets/images/bibi.jpg');
     const bgImage = await loadImage(bgPath);
 
     const scale = Math.max(canvas.width / bgImage.width, canvas.height / bgImage.height);
@@ -187,7 +169,7 @@ async function drawProfileHeader(ctx: any, user: User, styles: any) {
     const avatarX = 70;
     const avatarY = 70;
     const avatarSize = styles.avatarSize;
-    const avatarURL = user.displayAvatarURL({ extension: 'png', size: 512 });
+    const avatarURL = user.displayAvatarURL({ extension: 'png', size: 512 }) || user.defaultAvatarURL;
     const avatar = await loadImage(avatarURL);
 
     // Рисуем аватар с тенью
@@ -285,9 +267,9 @@ function drawStatisticsPanel(
   ctx.fillText('Статистика', panelX + 25, panelY + 40);
   
   // Разбивка панели по вертикали
-  drawStatItem(ctx, panelX + 25, panelY + 90, '📝', `Сообщений: ${messageCount.toLocaleString('ru-RU')}`, styles);
-  drawStatItem(ctx, panelX + 25, panelY + 130, '🎙️', `В голосовых: ${voiceHours} ${hoursString}`, styles);
-  drawStatItem(ctx, panelX + 25, panelY + 170, '💰', `Баланс: ${currency.toLocaleString('ru-RU')} $`, styles);
+  drawStatItem(ctx, panelX + 25, panelY + 90, '', `Сообщений: ${messageCount.toLocaleString('ru-RU')}`, styles);
+  drawStatItem(ctx, panelX + 25, panelY + 130, '', `В голосовых: ${voiceHours} ${hoursString}`, styles);
+  drawStatItem(ctx, panelX + 25, panelY + 170, '', `Баланс: ${currency.toLocaleString('ru-RU')} $`, styles);
 }
 
 /**
@@ -297,7 +279,7 @@ function drawStatItem(ctx: any, x: number, y: number, icon: string, text: string
   ctx.font = '24px Montserrat';
   ctx.fillText(icon, x, y);
   ctx.fillStyle = styles.text;
-  ctx.fillText(text, x + 35, y);
+  ctx.fillText(text, x, y);
 }
 
 /**
@@ -323,7 +305,7 @@ function drawLevelPanel(
   ctx.fillText('Уровень', panelX + 25, panelY + 40);
   
   // Фоновый круг для уровня
-  const circleX = panelX + 110;
+  const circleX = panelX + 90;
   const circleY = panelY + 120;
   const circleRadius = 60;
   
@@ -338,14 +320,14 @@ function drawLevelPanel(
   ctx.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
   ctx.stroke();
   
-  // Уровень внутри круга (отцентрировано)
+  // Уровень внутри круга
   ctx.font = 'bold 48px Montserrat';
   ctx.fillStyle = styles.primary;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(level.toString(), circleX, circleY);
   
-  // Прогресс-бар (вывод процента и подпись)
+  // Прогресс-бар
   if (!isMaxLevel(level)) {
     const barX = panelX + 190;
     const barY = panelY + 120;
@@ -360,7 +342,14 @@ function drawLevelPanel(
     ctx.fill();
     
     // Заполненная часть прогресс-бара
-    const progressWidth = Math.floor(barWidth * progressPercent / 100);
+    const clampedProgress = Math.max(0, Math.min(progressPercent, 100));
+    let progressWidth = Math.max(barHeight, barWidth * clampedProgress / 100); // Минимальная ширина = высота бара
+    
+    // Для очень маленьких значений делаем визуально заметный прогресс
+    if (clampedProgress > 0 && progressWidth < barHeight * 2) {
+      progressWidth = barHeight * 1.2; // Минимальная видимая ширина
+    }
+    
     const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0);
     gradient.addColorStop(0, styles.primary);
     gradient.addColorStop(1, styles.secondary);
@@ -369,19 +358,18 @@ function drawLevelPanel(
     ctx.roundRect(barX, barY, progressWidth, barHeight, barRadius);
     ctx.fill();
     
-    // Текст прогресса — выравниваем текст по центру прогресс-бара сверху
+    // Текст прогресса
     ctx.font = 'bold 18px Montserrat';
     ctx.fillStyle = styles.text;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(`${progressPercent}%`, barX + barWidth / 2, barY - 5);
-    
+    ctx.fillText(`${clampedProgress}%`, barX + barWidth / 2, barY - 5);
   } else {
-    // Если максимальный уровень, выводим специальное сообщение
+    // Максимальный уровень
     ctx.font = 'bold 22px Montserrat';
     ctx.fillStyle = styles.accent;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('МАКСИМАЛЬНЫЙ УРОВЕНЬ', panelX + panelWidth / 2, panelY + 120);
+    ctx.fillText('МАКС. УРОВЕНЬ', panelX + (panelWidth - circleRadius * 2), panelY + 120);
   }
 }

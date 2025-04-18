@@ -27,7 +27,7 @@ class ConfigCommands {
             type: ApplicationCommandOptionType.String
         })
         key: string,
-        @SlashOption({ 
+        @SlashOption({
             description: "Введите значение для ключа",
             name: "value",
             required: true,
@@ -41,12 +41,12 @@ class ConfigCommands {
             const newConfig = configRepository.create({ key, value });
             await configRepository.save(newConfig);
             logger.info(`Добавлен новый конфиг ${key} = ${value}`);
-            
+
             const embed = createSuccessEmbed(`Конфиг **${key}** установлен: \`${value}\``, interaction.user);
             await interaction.reply({ embeds: [embed] });
         } catch (error) {
             logger.error("Ошибка обновления конфига:", error);
-            
+
             const embed = createErrorEmbed("Ошибка при сохранении конфига", interaction.user);
             await interaction.reply({ embeds: [embed] });
         }
@@ -86,12 +86,12 @@ class ConfigCommands {
             }
 
             logger.info(`Удален конфиг ${key} ${value}`);
-            
+
             const embed = createSuccessEmbed(`Конфиг **${key}** **${value}** успешно удален`, interaction.user);
             await interaction.reply({ embeds: [embed] });
         } catch (error) {
             logger.error("Ошибка удаления конфига:", error);
-            
+
             const embed = createErrorEmbed("Ошибка при удалении конфига", interaction.user);
             await interaction.reply({ embeds: [embed] });
         }
@@ -109,7 +109,7 @@ class ConfigCommands {
                 const embed = createErrorEmbed("Конфиги не найдены", interaction.user);
                 return interaction.reply({ embeds: [embed] });
             }
-        
+
             const configsByKey = this.groupConfigsByKey(allConfigs);
             const embed = createEmbed({
                 title: "⚙️ Конфигурация сервера",
@@ -127,32 +127,32 @@ class ConfigCommands {
             return;
         } catch (error) {
             logger.error("Ошибка получения конфига:", error);
-            
+
             const embed = createErrorEmbed("Ошибка при получении конфига", interaction.user);
             await interaction.reply({ embeds: [embed] });
         }
     }
-    
+
     private groupConfigsByKey(configs: Config[]): Record<string, string[]> {
         const grouped: Record<string, string[]> = {};
-        
+
         for (const config of configs) {
             if (!grouped[config.key]) {
                 grouped[config.key] = [];
             }
             grouped[config.key].push(config.value);
         }
-        
+
         return grouped;
     }
-    
-    private createConfigFields(configsByKey: Record<string, string[]>): Array<{name: string, value: string}> {
-        const fields: Array<{name: string, value: string}> = [];
-        
+
+    private createConfigFields(configsByKey: Record<string, string[]>): Array<{ name: string, value: string }> {
+        const fields: Array<{ name: string, value: string }> = [];
+
         for (const [key, values] of Object.entries(configsByKey)) {
             let displayName = key;
-            
-            switch(key) {
+
+            switch (key) {
                 case "low_mod_level":
                     displayName = "🟢 Low Mod Roles";
                     break;
@@ -166,13 +166,13 @@ class ConfigCommands {
                     displayName = "🔇 Ignored Voice Channels";
                     break;
             }
-            
+
             fields.push({
                 name: displayName,
                 value: values.map(v => `\`${v}\``).join(", ")
             });
         }
-        
+
         return fields;
     }
 }

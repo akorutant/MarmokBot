@@ -1,14 +1,14 @@
-import { 
-  Discord, 
-  SlashGroup, 
-  Slash, 
-  SlashOption, 
-  Guard 
+import {
+  Discord,
+  SlashGroup,
+  Slash,
+  SlashOption,
+  Guard
 } from "discordx";
-import { 
-  CommandInteraction, 
-  User as DiscordUser, 
-  ApplicationCommandOptionType 
+import {
+  CommandInteraction,
+  User as DiscordUser,
+  ApplicationCommandOptionType
 } from "discord.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { AppDataSource } from "../services/database.js";
@@ -59,7 +59,7 @@ class ExpCommands {
 
       user.exp.exp = BigInt(expCount);
       user.exp.level = getMaxLevelForExp(user.exp.exp);
-      
+
       await expRepository.save(user.exp);
       logger.info(`Пользователю ${discordUser.id} установлено ${expCount} EXP и уровень ${user.exp.level}`);
 
@@ -103,14 +103,14 @@ class ExpCommands {
 
       const oldLevel = user.exp.level;
       await expRepository.increment({ id: user.exp.id }, "exp", expCount);
-      
+
       const newExp = await expRepository.findOneOrFail({ where: { id: user.exp.id } });
       const newLevel = getMaxLevelForExp(newExp.exp);
 
       if (newLevel !== oldLevel) {
         user.exp.level = newLevel;
         await expRepository.save(user.exp);
-        
+
         const levelUpMsg = `\nПользователь повысил уровень до ${newLevel}! 🎉`;
         const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}${levelUpMsg}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
@@ -118,7 +118,7 @@ class ExpCommands {
         const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
       }
-      
+
       logger.info(`Пользователю ${discordUser.id} добавлено ${expCount} EXP, текущий уровень: ${newLevel}`);
 
     } catch (error) {
@@ -160,14 +160,14 @@ class ExpCommands {
       const currentExp = Number(user.exp.exp);
       const finalExp = Math.max(0, currentExp - expCount);
       const actualDecrease = currentExp - finalExp;
-      
+
       user.exp.exp = BigInt(finalExp);
       const newLevel = getMaxLevelForExp(user.exp.exp);
-      
+
       if (newLevel !== oldLevel) {
         user.exp.level = newLevel;
         await expRepository.save(user.exp);
-        
+
         const levelDownMsg = `\nУровень пользователя понизился до ${newLevel}.`;
         const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}${levelDownMsg}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
@@ -176,7 +176,7 @@ class ExpCommands {
         const embed = createSuccessEmbed(`У пользователя <@${discordUser.id}> вычтено EXP: -${actualDecrease}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
       }
-      
+
       logger.info(`У пользователя ${discordUser.id} вычтено ${actualDecrease} EXP, текущий уровень: ${newLevel}`);
 
     } catch (error) {
