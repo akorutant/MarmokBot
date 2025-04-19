@@ -32,7 +32,8 @@ class GiftCommand {
             description: "Количество подарков для открытия (по умолчанию 1)",
             type: ApplicationCommandOptionType.Integer,
             required: false,
-            minValue: 1
+            minValue: 1,
+            maxValue: 10
         })
         amount: number = 1,
         interaction: CommandInteraction

@@ -116,8 +116,6 @@ class ExpCommands {
 
       if (newLevel !== oldLevel) {
         user.exp.level = newLevel;
-        await expRepository.save(user.exp);
-
         const levelUpMsg = `\nПользователь повысил уровень до ${newLevel}! 🎉`;
         const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}${levelUpMsg}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
@@ -125,6 +123,7 @@ class ExpCommands {
         const embed = createSuccessEmbed(`Пользователю <@${discordUser.id}> добавлено EXP: +${expCount}`, interaction.user);
         await interaction.reply({ embeds: [embed] });
       }
+      await expRepository.save(user.exp);
 
       logger.info(`Пользователю ${discordUser.id} добавлено ${expCount} EXP, текущий уровень: ${newLevel}`);
 

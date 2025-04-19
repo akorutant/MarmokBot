@@ -25,7 +25,7 @@ class CasinoCommand {
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
         EnsureUserGuard(),
-        Cooldown({ hours: 3 })
+        Cooldown({ seconds: 10 })
     )
     async casino(
         @SlashOption({
