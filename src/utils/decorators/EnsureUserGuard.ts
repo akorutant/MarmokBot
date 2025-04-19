@@ -17,7 +17,7 @@ export function EnsureUserGuard(): GuardFunction<CommandInteraction> {
         if (option.type === ApplicationCommandOptionType.User && option.user) {
           commandUsers.push(option.user);
         }
-        
+
         if (option.options) {
           for (const subOption of option.options) {
             if (subOption.type === ApplicationCommandOptionType.User && subOption.user) {
@@ -30,8 +30,8 @@ export function EnsureUserGuard(): GuardFunction<CommandInteraction> {
       const hasBot = commandUsers.some(user => user.bot);
       if (hasBot) {
         await interaction.reply({
-            content: "⚠️ Ботов нельзя передавать!",
-            ephemeral: true
+          content: "⚠️ Ботов нельзя передавать!",
+          ephemeral: true
         });
         return;
       }
@@ -40,7 +40,7 @@ export function EnsureUserGuard(): GuardFunction<CommandInteraction> {
 
       const uniqueUsers = users
         .filter(user => !user.bot)
-        .filter((user, index, arr) => 
+        .filter((user, index, arr) =>
           arr.findIndex(u => u.id === user.id) === index
         );
 
@@ -59,9 +59,9 @@ export function EnsureUserGuard(): GuardFunction<CommandInteraction> {
 
 async function createUserIfNeeded(discordId: string): Promise<void> {
   const userRepo = AppDataSource.getRepository(User);
-  
+
   try {
-    const existingUser = await userRepo.findOne({ 
+    const existingUser = await userRepo.findOne({
       where: { discordId },
       relations: ["exp", "currency", "giftStats"]
     });
@@ -102,14 +102,14 @@ async function createUserIfNeeded(discordId: string): Promise<void> {
       where: { discordId },
       relations: ["exp"]
     });
-    
+
     if (!checkUser) {
       throw new Error(`Не удалось создать пользователя ${discordId}`);
     }
-    
+
     logger.info(`[EnsureUserGuard] Успешно создан пользователь ${discordId}`);
   } catch (error) {
     logger.error(`[EnsureUserGuard] Ошибка при создании пользователя ${discordId}:`, error);
-    throw error; 
+    throw error;
   }
 }

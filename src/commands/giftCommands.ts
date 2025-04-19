@@ -173,9 +173,9 @@ class GiftCommand {
     })
     @EnsureUser()
     @Guard(
-        EnsureUserGuard()
+        EnsureUserGuard(),
+        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async addgifts(
         @SlashOption({
             name: "user",
@@ -240,9 +240,9 @@ class GiftCommand {
     })
     @EnsureUser()
     @Guard(
-        EnsureUserGuard()
+        EnsureUserGuard(),
+        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async removegifts(
         @SlashOption({
             name: "user",

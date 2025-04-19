@@ -22,9 +22,9 @@ class CurrencyCommands {
     @Slash({ description: "Установить пользователю кол-во валюты" })
     @EnsureUser()
     @Guard(
-        EnsureUserGuard()
+        EnsureUserGuard(),
+        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async set(
         @SlashOption({
             description: "Выберите пользователя",
@@ -67,9 +67,9 @@ class CurrencyCommands {
     @Slash({ description: "Добавить пользователю кол-во валюты" })
     @EnsureUser()
     @Guard(
-        EnsureUserGuard()
+        EnsureUserGuard(),
+        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async add(
         @SlashOption({
             description: "Выберите пользователя",
@@ -111,9 +111,9 @@ class CurrencyCommands {
     @Slash({ description: "Снять валюту у пользователя" })
     @EnsureUser()
     @Guard(
-        EnsureUserGuard()
+        EnsureUserGuard(),
+        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async remove(
         @SlashOption({
             description: "Выберите пользователя",
@@ -156,9 +156,9 @@ class CurrencyCommands {
     @EnsureUser()
     @Guard(
         ChannelGuard("user_commands_channel"),
-        EnsureUserGuard()
+        EnsureUserGuard(),
+        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async balance(
         @SlashOption({
             description: "Выберите пользователя (не указывайте, чтобы проверить свой баланс)",

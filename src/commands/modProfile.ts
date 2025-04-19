@@ -24,8 +24,8 @@ class ModProfileCommand {
     @EnsureUser()
     @Guard(
         EnsureUserGuard(),
+        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async modprofile(
         @SlashOption({
             name: "user",

@@ -33,9 +33,9 @@ class ExpCommands {
   @Slash({ description: "Установить кол-во EXP пользователю" })
   @EnsureUser()
   @Guard(
-      EnsureUserGuard()
+      EnsureUserGuard(),
+      RequireRoles(["high_mod_level", "medium_mod_level"])
   )
-  @RequireRoles(["high_mod_level", "medium_mod_level"])
   async set(
     @SlashOption({
       description: "Выберите пользователя",
@@ -80,9 +80,9 @@ class ExpCommands {
   @Slash({ description: "Добавить кол-во EXP пользователю" })
   @EnsureUser()
   @Guard(
-    EnsureUserGuard()
+    EnsureUserGuard(),
+    RequireRoles(["high_mod_level", "medium_mod_level"])
   )
-  @RequireRoles(["high_mod_level", "medium_mod_level"])
   async add(
     @SlashOption({
       description: "Выберите пользователя",
@@ -137,9 +137,9 @@ class ExpCommands {
   @Slash({ description: "Снять EXP у пользователя" })
   @EnsureUser()
   @Guard(
-    EnsureUserGuard()
+    EnsureUserGuard(),
+    RequireRoles(["high_mod_level", "medium_mod_level"])
   )
-  @RequireRoles(["high_mod_level", "medium_mod_level"])
   async remove(
     @SlashOption({
       description: "Выберите пользователя",

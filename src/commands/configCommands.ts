@@ -1,4 +1,4 @@
-import { Discord, SlashGroup, Slash, SlashOption, SlashChoice } from "discordx";
+import { Discord, SlashGroup, Slash, SlashOption, SlashChoice, Guard } from "discordx";
 import { CommandInteraction, ApplicationCommandOptionType, Attachment } from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { Config } from "../entities/Config.js";
@@ -15,7 +15,7 @@ import axios from "axios";
 @SlashGroup("config")
 class ConfigCommands {
     @Slash({ description: "Добавить значение в конфиг" })
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
+    @Guard(RequireRoles(["high_mod_level", "medium_mod_level"]))
     async add(
         @SlashChoice({ name: "Low Moderation Level", value: "low_mod_level" })
         @SlashChoice({ name: "Medium Moderation Level", value: "medium_mod_level" })
@@ -55,7 +55,7 @@ class ConfigCommands {
     }
 
     @Slash({ description: "Установить кастомный фон профиля" })
-    @RequireRoles(["high_mod_level"])
+    @Guard(RequireRoles(["high_mod_level"]))
     async setbackground(
         @SlashOption({
             description: "Изображение для фона профиля (PNG)",
@@ -114,7 +114,7 @@ class ConfigCommands {
     }
 
     @Slash({ description: "Убрать кастомный фон профиля" })
-    @RequireRoles(["high_mod_level"])
+    @Guard(RequireRoles(["high_mod_level"]))
     async removebackground(
         interaction: CommandInteraction
     ) {
@@ -159,7 +159,7 @@ class ConfigCommands {
     }
 
     @Slash({ description: "Удалить значение конфига" })
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
+    @Guard(RequireRoles(["high_mod_level", "medium_mod_level"]))
     async remove(
         @SlashChoice({ name: "Low Moderation Level", value: "low_mod_level" })
         @SlashChoice({ name: "Medium Moderation Level", value: "medium_mod_level" })
@@ -221,7 +221,7 @@ class ConfigCommands {
     }
 
     @Slash({ description: "Получить все значения конфига" })
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
+    @Guard(RequireRoles(["high_mod_level", "medium_mod_level"]))
     async get(
         interaction: CommandInteraction
     ) {
