@@ -283,7 +283,7 @@ watcher
   app.get('/logs/stream', streamHandler);
 
   const port = Number(process.env.LOG_PORT) || 5050;
-  return app.listen(port, () => {
-    console.log(`📊 Logs dashboard: http://localhost:${port}/logs`);
+  return app.listen(port, '0.0.0.0', () => {
+    console.log(`📊 Logs dashboard: http://0.0.0.0:${port}/logs`);
   });
 }
