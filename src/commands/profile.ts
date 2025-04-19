@@ -73,7 +73,6 @@ class ProfileCommand {
             logger.info(`User stats - Messages: ${messageCount}, Voice: ${voiceMinutes}, Level: ${levelValue}, Progress: ${progressPercentage}%`);
 
             let backgroundImagePath = undefined;
-            if (targetUser.id === interaction.user.id) {
                 try {
                     const configRepo = AppDataSource.getRepository(Config);
                     const config = await configRepo.findOne({
@@ -93,7 +92,6 @@ class ProfileCommand {
                 } catch (error) {
                     logger.error(`Ошибка при проверке кастомного фона: ${error}`);
                 }
-            }
 
             try {
                 const profileImage = await generateProfileImage(

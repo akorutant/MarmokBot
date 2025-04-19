@@ -199,15 +199,6 @@ class GiftCommand {
         try {
             await interaction.deferReply();
             
-            const member = interaction.guild?.members.cache.get(interaction.user.id);
-            if (!member?.permissions.has("ManageGuild")) {
-                const errorEmbed = createErrorEmbed(
-                    "У вас нет прав для использования этой команды",
-                    interaction.user
-                );
-                return await interaction.editReply({ embeds: [errorEmbed] });
-            }
-            
             const targetUserId = user.id;
             
             const giftStatsRepository = AppDataSource.getRepository(GiftStats);
