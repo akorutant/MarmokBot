@@ -4,6 +4,7 @@ import { AppDataSource } from "../services/database.js";
 import { User as DBUser } from "../entities/User.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
+import { WithCustomBackground } from "../utils/decorators/CustomBackgroundDecorator.js";
 import { createErrorEmbed } from "../utils/embedBuilder.js";
 import {
     calculateNextLevelExp,
@@ -13,6 +14,10 @@ import {
 } from "../utils/levelUpUtils.js";
 import { generateProfileImage } from "../utils/profileImageGenerator.js";
 import logger from "../services/logger.js";
+import { Config } from "../entities/Config.js";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 @Discord()
 class ProfileCommand {
@@ -67,7 +72,32 @@ class ProfileCommand {
 
             logger.info(`User stats - Messages: ${messageCount}, Voice: ${voiceMinutes}, Level: ${levelValue}, Progress: ${progressPercentage}%`);
 
-            // Generate profile image
+            // Проверяем наличие кастомного фона
+            let backgroundImagePath = undefined;
+            if (targetUser.id === interaction.user.id) {
+                try {
+                    // Проверяем запись в конфиге
+                    const configRepo = AppDataSource.getRepository(Config);
+                    const config = await configRepo.findOne({
+                        where: { key: "custom_background", value: targetUser.id }
+                    });
+                    
+                    if (config) {
+                        // Проверяем существование файла
+                        const __filename = fileURLToPath(import.meta.url);
+                        const __dirname = path.dirname(__filename);
+                        const imagePath = path.join(__dirname, '../../assets/images', `${targetUser.id}.png`);
+                        
+                        if (fs.existsSync(imagePath)) {
+                            backgroundImagePath = imagePath;
+                            logger.info(`Применяем кастомный фон для пользователя ${targetUser.id}`);
+                        }
+                    }
+                } catch (error) {
+                    logger.error(`Ошибка при проверке кастомного фона: ${error}`);
+                }
+            }
+
             try {
                 const profileImage = await generateProfileImage(
                     targetUser,
@@ -75,7 +105,8 @@ class ProfileCommand {
                     Number(voiceMinutes),
                     levelValue,
                     Number(currencyValue),
-                    progressPercentage
+                    progressPercentage,
+                    backgroundImagePath
                 );
 
                 const attachment = new AttachmentBuilder(profileImage, { name: 'profile.png' });

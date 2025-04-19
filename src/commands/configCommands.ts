@@ -1,12 +1,14 @@
 import { Discord, SlashGroup, Slash, SlashOption, SlashChoice } from "discordx";
-import { CommandInteraction } from "discord.js";
-import { ApplicationCommandOptionType } from "discord.js";
+import { CommandInteraction, ApplicationCommandOptionType, Attachment } from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { Config } from "../entities/Config.js";
 import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { createSuccessEmbed, createErrorEmbed, createEmbed, EmbedColors } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
-
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import axios from "axios";
 
 @Discord()
 @SlashGroup({ description: "Commands for managing server config", name: "config" })
@@ -52,6 +54,121 @@ class ConfigCommands {
         }
     }
 
+    @Slash({ description: "Set custom background for user profile" })
+    @RequireRoles(["high_mod_level"])
+    async setbackground(
+        @SlashOption({
+            description: "Изображение для фона профиля (PNG)",
+            name: "image",
+            required: true,
+            type: ApplicationCommandOptionType.Attachment
+        })
+        attachment: Attachment,
+        interaction: CommandInteraction
+    ) {
+        try {
+            await interaction.deferReply();
+
+            // Получаем ID пользователя, вызвавшего команду
+            const userId = interaction.user.id;
+            
+            // Проверка валидности файла
+            if (!attachment.contentType?.startsWith('image/')) {
+                const embed = createErrorEmbed("Загруженный файл не является изображением.", interaction.user);
+                return interaction.editReply({ embeds: [embed] });
+            }
+
+            // Путь для сохранения изображения
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname = path.dirname(__filename);
+            const assetsPath = path.join(__dirname, '../../assets/images');
+            const customBackgroundFullPath = path.join(assetsPath, `${userId}.png`);
+
+            // Создание директории, если не существует
+            if (!fs.existsSync(assetsPath)) {
+                fs.mkdirSync(assetsPath, { recursive: true });
+                logger.info(`Создана директория для хранения изображений: ${assetsPath}`);
+            }
+
+            // Скачивание и сохранение изображения
+            const response = await axios.get(attachment.url, { responseType: 'arraybuffer' });
+            fs.writeFileSync(customBackgroundFullPath, Buffer.from(response.data));
+            logger.info(`Фоновое изображение сохранено для пользователя ${userId}: ${customBackgroundFullPath}`);
+
+            // Добавление записи в конфиг, если ее еще нет
+            const configRepository = AppDataSource.getRepository(Config);
+            const existingConfig = await configRepository.findOne({
+                where: { key: "custom_background", value: userId }
+            });
+
+            if (!existingConfig) {
+                const newConfig = configRepository.create({ key: "custom_background", value: userId });
+                await configRepository.save(newConfig);
+                logger.info(`Добавлен новый конфиг custom_background = ${userId}`);
+            }
+
+            const embed = createSuccessEmbed(
+                `Установлен кастомный фон для вашего профиля!`, 
+                interaction.user
+            );
+            await interaction.editReply({ embeds: [embed] });
+        } catch (error) {
+            logger.error("Ошибка при установке кастомного фона:", error);
+            const embed = createErrorEmbed("Произошла ошибка при установке кастомного фона.", interaction.user);
+            await interaction.editReply({ embeds: [embed] });
+        }
+    }
+
+    @Slash({ description: "Remove custom background for your profile" })
+    @RequireRoles(["high_mod_level"])
+    async removebackground(
+        interaction: CommandInteraction
+    ) {
+        try {
+            await interaction.deferReply();
+
+            // Получаем ID пользователя, вызвавшего команду
+            const userId = interaction.user.id;
+
+            // Путь к файлу изображения
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname = path.dirname(__filename);
+            const assetsPath = path.join(__dirname, '../../assets/images');
+            const customBackgroundFullPath = path.join(assetsPath, `${userId}.png`);
+
+            // Удаление файла, если он существует
+            let fileDeleted = false;
+            if (fs.existsSync(customBackgroundFullPath)) {
+                fs.unlinkSync(customBackgroundFullPath);
+                fileDeleted = true;
+                logger.info(`Удален файл фона для пользователя ${userId}: ${customBackgroundFullPath}`);
+            }
+
+            // Удаление записи из конфига
+            const configRepository = AppDataSource.getRepository(Config);
+            const result = await configRepository.delete({
+                key: "custom_background",
+                value: userId
+            });
+
+            if (result.affected === 0 && !fileDeleted) {
+                const embed = createErrorEmbed(`У вас не установлен кастомный фон.`, interaction.user);
+                return interaction.editReply({ embeds: [embed] });
+            }
+
+            logger.info(`Удален конфиг custom_background для пользователя ${userId}`);
+            const embed = createSuccessEmbed(
+                `Кастомный фон для вашего профиля удален.`, 
+                interaction.user
+            );
+            await interaction.editReply({ embeds: [embed] });
+        } catch (error) {
+            logger.error("Ошибка при удалении кастомного фона:", error);
+            const embed = createErrorEmbed("Произошла ошибка при удалении кастомного фона.", interaction.user);
+            await interaction.editReply({ embeds: [embed] });
+        }
+    }
+
     @Slash({ description: "Remove config value" })
     @RequireRoles(["high_mod_level", "medium_mod_level"])
     async remove(
@@ -60,6 +177,7 @@ class ConfigCommands {
         @SlashChoice({ name: "High Moderation Level", value: "high_mod_level" })
         @SlashChoice({ name: "Ignore Voice Channel For EXP", value: "ignore_voice_channel_exp" })
         @SlashChoice({ name: "Allow chat commands for users ", value: "user_commands_channel" })
+        @SlashChoice({ name: "Custom Background For Profile", value: "custom_background" })
         @SlashOption({
             description: "Выберите ключ для удаления",
             name: "key",
@@ -83,6 +201,23 @@ class ConfigCommands {
             if (result.affected === 0) {
                 const embed = createErrorEmbed(`Конфиг **${key}** **${value}** не найден`, interaction.user);
                 return interaction.reply({ embeds: [embed] });
+            }
+
+            // Если удаляем запись custom_background, также удаляем файл изображения
+            if (key === "custom_background") {
+                try {
+                    const __filename = fileURLToPath(import.meta.url);
+                    const __dirname = path.dirname(__filename);
+                    const assetsPath = path.join(__dirname, '../../assets/images');
+                    const customBackgroundFullPath = path.join(assetsPath, `${value}.png`);
+                    
+                    if (fs.existsSync(customBackgroundFullPath)) {
+                        fs.unlinkSync(customBackgroundFullPath);
+                        logger.info(`Удален файл фона для пользователя ${value}: ${customBackgroundFullPath}`);
+                    }
+                } catch (fileError) {
+                    logger.error(`Ошибка при удалении файла фона: ${fileError}`);
+                }
             }
 
             logger.info(`Удален конфиг ${key} ${value}`);
@@ -164,6 +299,12 @@ class ConfigCommands {
                     break;
                 case "ignore_voice_channel_exp":
                     displayName = "🔇 Ignored Voice Channels";
+                    break;
+                case "user_commands_channel":
+                    displayName = "💬 User Commands Channels";
+                    break;
+                case "custom_background":
+                    displayName = "🖼️ Custom Profile Backgrounds";
                     break;
             }
 

@@ -2,19 +2,15 @@ import { AppDataSource } from "../../services/database.js";
 import { User } from "../../entities/User.js";
 import { Exp } from "../../entities/Exp.js";
 import { Currency } from "../../entities/Currency.js";
+import { GiftStats } from "../../entities/GiftStats.js";
 import logger from "../../services/logger.js";
 
 /**
  * Декоратор, гарантирующий существование пользователя в базе данных.
- * Если пользователь не существует, создает его с указанными сущностями.
+ * Всегда создает пользователя и связанные сущности, если они отсутствуют.
  * Боты не будут добавлены в базу данных.
- * @param options Опции для создания пользователя
  */
-export function EnsureUser(options: {
-  createExp?: boolean;
-  createCurrency?: boolean;
-  relations?: string[];
-} = { createExp: true, createCurrency: true, relations: ["exp", "currency"] }) {
+export function EnsureUser() {
   return function (
     target: any,
     propertyKey: string,
@@ -59,12 +55,15 @@ export function EnsureUser(options: {
         const userRepository = AppDataSource.getRepository(User);
         const expRepository = AppDataSource.getRepository(Exp);
         const currencyRepository = AppDataSource.getRepository(Currency);
+        const giftStatsRepository = AppDataSource.getRepository(GiftStats);
 
+        // Ищем пользователя с полными зависимостями
         let user = await userRepository.findOne({
           where: { discordId },
-          relations: options.relations || []
+          relations: ["exp", "currency"]
         });
 
+        // Создаем нового пользователя, если он отсутствует
         if (!user) {
           logger.info(`EnsureUser: Создание нового пользователя ${discordId}`);
 
@@ -74,46 +73,47 @@ export function EnsureUser(options: {
             voiceMinutes: 0n
           });
           await userRepository.save(user);
-
-          if (options.createExp) {
-            const newExp = expRepository.create({
-              exp: 0n,
-              level: 1,
-              user
-            });
-            await expRepository.save(newExp);
-            logger.debug(`EnsureUser: Создана запись опыта для пользователя ${discordId}`);
-          }
-
-          if (options.createCurrency) {
-            const newCurrency = currencyRepository.create({
-              currencyCount: 0n,
-              user
-            });
-            await currencyRepository.save(newCurrency);
-            logger.debug(`EnsureUser: Создана запись валюты для пользователя ${discordId}`);
-          }
         }
-        else {
-          if (options.createExp && options.relations?.includes("exp") && !user.exp) {
-            const newExp = expRepository.create({
-              exp: 0n,
-              level: 1,
-              user
-            });
-            await expRepository.save(newExp);
-            logger.debug(`EnsureUser: Добавлена отсутствующая запись опыта для существующего пользователя ${discordId}`);
-          }
 
-          if (options.createCurrency && options.relations?.includes("currency") && !user.currency) {
-            const newCurrency = currencyRepository.create({
-              currencyCount: 0n,
-              user
-            });
-            await currencyRepository.save(newCurrency);
-            logger.debug(`EnsureUser: Добавлена отсутствующая запись валюты для существующего пользователя ${discordId}`);
-          }
+        // Всегда проверяем и создаем запись EXP, если она отсутствует
+        if (!user.exp) {
+          const newExp = expRepository.create({
+            exp: 0n,
+            level: 1,
+            user
+          });
+          await expRepository.save(newExp);
+          logger.debug(`EnsureUser: Создана запись опыта для пользователя ${discordId}`);
         }
+
+        // Всегда проверяем и создаем запись Currency, если она отсутствует
+        if (!user.currency) {
+          const newCurrency = currencyRepository.create({
+            currencyCount: 0n,
+            user
+          });
+          await currencyRepository.save(newCurrency);
+          logger.debug(`EnsureUser: Создана запись валюты для пользователя ${discordId}`);
+        }
+
+        // Проверяем и создаем запись GiftStats, если она отсутствует
+        const giftStats = await giftStatsRepository.findOne({
+          where: { discordId }
+        });
+
+        if (!giftStats) {
+          const newGiftStats = giftStatsRepository.create({
+            discordId,
+            userId: user.id,
+            user,
+            trackedVoiceMinutes: user.voiceMinutes,
+            claimedGiftsFromVoice: 0,
+            totalGiftsClaimed: 0
+          });
+          await giftStatsRepository.save(newGiftStats);
+          logger.debug(`EnsureUser: Создана запись GiftStats для пользователя ${discordId}`);
+        }
+
       } catch (error) {
         logger.error(`EnsureUser: Ошибка при обработке пользователя ${discordId}: %O`, error);
       }

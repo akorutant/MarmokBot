@@ -16,7 +16,7 @@ class CoinflipCommand {
     @Guard(
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
-        Cooldown({ seconds: 30 })
+        Cooldown({ seconds: 10 })
     )
     @EnsureUser()
     async coin(

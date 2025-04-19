@@ -1,6 +1,9 @@
-import { EmbedBuilder, User, Guild, ColorResolvable } from "discord.js";
+import { EmbedBuilder, User, Guild, ColorResolvable, CommandInteraction } from "discord.js";
 import { calculateNextLevelExp } from "./levelUpUtils.js";
 import { getHoursString } from "./hoursUtils.js";
+import { GiftReward } from "../types/giftTypes.js";
+import { CasinoResult } from "../types/casinoTypes.js";
+import { RARITY_COLORS } from "../constants/colors.js";
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2,
@@ -384,4 +387,181 @@ export function createDuelEmbed(
     },
     fields: fields
   });
+}
+
+/**
+ * Создает эмбед с результатами открытия подарка
+ * @param results Результаты открытия подарка
+ * @param totalWin Общая сумма выигрыша
+ * @param totalCost Общая стоимость подарка
+ * @param interaction Объект взаимодействия
+ * @returns Объект эмбеда с результатами
+ */
+export function createGiftResultEmbed(
+  results: GiftReward[],
+  totalWin: number,
+  totalCost: number,
+  interaction: CommandInteraction
+): EmbedBuilder {
+  const profit = totalWin - totalCost;
+  const isProfit = profit > 0;
+  
+  const embedColor = isProfit ? RARITY_COLORS.legendary : 
+                    (totalWin === 0 ? RARITY_COLORS.common : RARITY_COLORS.rare);
+  
+  const embed = new EmbedBuilder()
+      .setTitle(`✨ 🎁 ОТКРЫТИЕ ПОДАРКА 🎁 ✨`)
+      .setDescription(`<@${interaction.user.id}> с нетерпением открывает свой подарок...`)
+      .setColor(embedColor)
+      .setTimestamp()
+      .setThumbnail(interaction.user.displayAvatarURL({ size: 128 }));
+  
+  // Обрабатываем подарок
+  const reward = results[0];
+  let valueText = '';
+  let rewardTitle = '';
+  
+  if (reward.type === 'nothing') {
+      valueText = '```Вы разворачиваете подарок и находите... ничего особенного.```';
+      rewardTitle = `${reward.emoji} В этот раз не повезло`;
+  } else if (reward.type === 'currency') {
+      valueText = `\`\`\`diff\n+ ${reward.amount}$\n\`\`\``;
+      rewardTitle = `${reward.emoji} ${reward.name}`;
+  }
+  
+  embed.addFields({
+      name: rewardTitle,
+      value: valueText
+  });
+  
+  embed.addFields({
+      name: '┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅',
+      value: '📊 **Финансовый отчет** 📊'
+  });
+  
+  embed.addFields(
+      {
+          name: '💰 Получено',
+          value: `\`${totalWin}$\``,
+          inline: true
+      },
+      {
+          name: '💸 Потрачено',
+          value: `\`${totalCost}$\``,
+          inline: true
+      },
+      {
+          name: `${isProfit ? '📈' : '📉'} Итог`,
+          value: `\`${profit > 0 ? '+' : ''}${profit}$\``,
+          inline: true
+      }
+  );
+  
+  if (isProfit) {
+      embed.setFooter({ 
+          text: '🍀 Удача улыбнулась вам! Поздравляем с прибылью!',
+          iconURL: interaction.user.displayAvatarURL()
+      });
+  } else if (totalWin === 0) {
+      embed.setFooter({ 
+          text: '😔 В следующий раз фортуна обязательно повернется к вам лицом!',
+          iconURL: interaction.user.displayAvatarURL()
+      });
+  } else {
+      embed.setFooter({ 
+          text: '🎲 По статистике 90% потенциальных миллионеров останавливается перед выигрышем...',
+          iconURL: interaction.user.displayAvatarURL()
+      });
+  }
+  
+  return embed;
+}
+
+/**
+ * Создает эмбед с результатами игры в казино
+ * @param bet Размер ставки
+ * @param winAmount Сумма выигрыша
+ * @param result Результат игры (множитель, эмодзи, описание)
+ * @param interaction Объект взаимодействия
+ * @returns Объект эмбеда с результатами
+ */
+export function createCasinoResultEmbed(
+  bet: number,
+  winAmount: number,
+  result: CasinoResult,
+  interaction: CommandInteraction
+): EmbedBuilder {
+  const profit = winAmount - bet;
+  const isWin = profit > 0;
+  
+  // Выбираем цвет в зависимости от исхода
+  const embedColor = profit > 0 ? RARITY_COLORS.legendary : 
+                    (winAmount === bet ? RARITY_COLORS.rare : RARITY_COLORS.common);
+  
+  const embed = new EmbedBuilder()
+      .setTitle(`${result.emoji} 🎰 КАЗИНО 🎰 ${result.emoji}`)
+      .setDescription(`<@${interaction.user.id}> делает ставку и наблюдает за вращением колеса фортуны...`)
+      .setColor(embedColor)
+      .setTimestamp()
+      .setThumbnail(interaction.user.displayAvatarURL({ size: 128 }));
+  
+  // Форматируем результат с использованием блоков кода для выделения
+  let resultBlock;
+  if (profit > 0) {
+      resultBlock = `\`\`\`diff\n+ ${result.description}\n\`\`\``;
+  } else if (winAmount === bet) {
+      resultBlock = `\`\`\`fix\n${result.description}\n\`\`\``;
+  } else {
+      resultBlock = `\`\`\`diff\n- ${result.description}\n\`\`\``;
+  }
+  
+  embed.addFields({
+      name: `${result.emoji} Результат:`,
+      value: resultBlock
+  });
+  
+  // Добавляем разделитель с декоративными элементами
+  embed.addFields({
+      name: '┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅',
+      value: '📊 **Финансовый отчет** 📊'
+  });
+  
+  // Добавляем финансовую информацию
+  embed.addFields(
+      {
+          name: '💰 Ставка',
+          value: `\`${bet}$\``,
+          inline: true
+      },
+      {
+          name: '💸 Выигрыш',
+          value: `\`${winAmount}$\``,
+          inline: true
+      },
+      {
+          name: `${isWin ? '📈' : '📉'} Профит`,
+          value: `\`${profit > 0 ? '+' : ''}${profit}$\``,
+          inline: true
+      }
+  );
+  
+  // Разные футеры в зависимости от результата
+  if (isWin) {
+      embed.setFooter({ 
+          text: '🍀 Удача на вашей стороне! Поздравляем с выигрышем!',
+          iconURL: interaction.user.displayAvatarURL()
+      });
+  } else if (winAmount === bet) {
+      embed.setFooter({ 
+          text: '🎲 Вы вернули свою ставку. Ни выигрыша, ни проигрыша.',
+          iconURL: interaction.user.displayAvatarURL()
+      });
+  } else {
+      embed.setFooter({ 
+          text: '💸 По статистике 90% потенциальных миллионеров останавливается перед выигрышем...',
+          iconURL: interaction.user.displayAvatarURL()
+      });
+  }
+  
+  return embed;
 }
