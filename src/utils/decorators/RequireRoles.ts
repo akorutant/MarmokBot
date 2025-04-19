@@ -9,15 +9,7 @@ export function RequireRoles(configKeys: string[]) {
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
-      const interaction: CommandInteraction = args.find(
-        (arg) => arg?.reply && arg?.guild
-      );
-
-      if (!interaction) {
-        throw new Error("Interaction not found in method arguments.");
-      }
-
+    descriptor.value = async function (interaction: CommandInteraction, ...args: any[]) {
       const hasAccess = await userHasAnyRoleFromConfig(interaction, configKeys);
 
       if (!hasAccess) {
@@ -28,7 +20,7 @@ export function RequireRoles(configKeys: string[]) {
         return;
       }
 
-      return originalMethod.apply(this, args);
+      return originalMethod.apply(this, [interaction, ...args]);
     };
 
     return descriptor;
