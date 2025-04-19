@@ -430,7 +430,7 @@ export function createGiftResultEmbed(
   let valueText = '';
   let rewardTitle = '';
   
-  if (results.length < 1) {
+  if (results.length <= 1) {
     if (reward.type === 'nothing') {
       valueText = '```Вы разворачиваете подарок и находите... ничего особенного.```';
       rewardTitle = `${reward.emoji} В этот раз не повезло`;
