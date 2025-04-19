@@ -7,6 +7,7 @@ import { setupLogServer } from "./services/logServer/logServer.js";
 import { seedDefaultConfigs } from "./services/initDatabase.js";
 import { setDiscordClient } from "./utils/decorators/CheckLevelUp.js";
 import { setDiscordClient as setDiscordClientGifts } from "./utils/decorators/CheckGiftProgress.js";
+import { setupCommandPermissions } from "./utils/setupHiddenCommands.js";
 
 export const bot = new Client({
   intents: [
@@ -48,11 +49,14 @@ async function run() {
     throw Error("Could not find BOT_TOKEN in your environment");
   }
 
+  // Устанавливаем defaultPermission: false для защищенных команд
+
   await bot.login(process.env.BOT_TOKEN);
 }
 
 bot.once("ready", async () => {
   await bot.initApplicationCommands();
+  await setupCommandPermissions(bot, process.env.BOT_TOKEN!)
   setDiscordClient(bot);
   setDiscordClientGifts(bot);
   console.log("🤖 Bot started");
