@@ -1,7 +1,7 @@
-import { AppDataSource } from "../services/database.js";
+import { AppDataSource } from "./database.js";
 import { User } from "../entities/User.js";
 import { GiftStats } from "../entities/GiftStats.js";
-import logger from "../services/logger.js";
+import logger from "./logger.js";
 
 export class GiftSyncService {
   private static instance: GiftSyncService;
