@@ -368,6 +368,15 @@ export function createDuelEmbed(
       inline: true
     })
   }
+
+  if (targetUser !== undefined) {
+    fields.push({
+      name: "Дуэлянт",
+      value: `${targetUser}`,
+      inline: true
+    })
+  }
+
   if (winUser !== undefined) {
     fields.push({
       name: "Сумма выигрыша",
@@ -421,7 +430,8 @@ export function createGiftResultEmbed(
   let valueText = '';
   let rewardTitle = '';
   
-  if (reward.type === 'nothing') {
+  if (results.length < 1) {
+    if (reward.type === 'nothing') {
       valueText = '```Вы разворачиваете подарок и находите... ничего особенного.```';
       rewardTitle = `${reward.emoji} В этот раз не повезло`;
   } else if (reward.type === 'currency') {
@@ -433,6 +443,7 @@ export function createGiftResultEmbed(
       name: rewardTitle,
       value: valueText
   });
+  }
   
   embed.addFields({
       name: '┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅',
