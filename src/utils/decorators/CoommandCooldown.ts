@@ -1,4 +1,3 @@
-// utils/decorators/Cooldown.ts
 import { GuardFunction } from "discordx";
 import { CommandInteraction } from "discord.js";
 import { AppDataSource } from "../../services/database.js";
@@ -33,7 +32,6 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
         const cooldownRepository = AppDataSource.getRepository(CommandCooldown);
 
         try {
-            // Проверяем кулдаун
             const cooldown = await cooldownRepository.findOne({
                 where: { userId, commandName }
             });
@@ -76,7 +74,6 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
     };
 }
 
-// Функция для форматирования времени
 function formatTime(seconds: number): string {
     const days = Math.floor(seconds / 86400);
     seconds %= 86400;

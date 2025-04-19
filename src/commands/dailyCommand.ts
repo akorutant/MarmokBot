@@ -8,17 +8,19 @@ import { createErrorEmbed } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
 import { Currency } from "../entities/Currency.js";
 import { Cooldown } from "../utils/decorators/CoommandCooldown.js";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 const currentDate = Math.floor(new Date().getTime() / 1000);
 
 @Discord()
 class DailyCommand {
     @Slash({ description: "Получить ежедневную награду" })
+    @EnsureUser()
     @Guard(
         Cooldown({days: 1}),
-        ChannelGuard("user_commands_channel")
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard()
     )
-    @EnsureUser()
     async daily(
         interaction: CommandInteraction
     ) {

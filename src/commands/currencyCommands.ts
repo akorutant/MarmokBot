@@ -13,14 +13,18 @@ import {
     createCurrencyBalanceEmbed
 } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
-@SlashGroup({ description: "Commands for managing user currency", name: "currency" })
+@SlashGroup({ description: "Команды для изменения баланса пользователя", name: "currency" })
 @SlashGroup("currency")
 class CurrencyCommands {
-    @Slash({ description: "Set user currency to a specific value" })
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
+    @Slash({ description: "Установить пользователю кол-во валюты" })
     @EnsureUser()
+    @Guard(
+        EnsureUserGuard()
+    )
+    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async set(
         @SlashOption({
             description: "Выберите пользователя",
@@ -60,9 +64,12 @@ class CurrencyCommands {
         }
     }
 
-    @Slash({ description: "Add currency to a user" })
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
+    @Slash({ description: "Добавить пользователю кол-во валюты" })
     @EnsureUser()
+    @Guard(
+        EnsureUserGuard()
+    )
+    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async add(
         @SlashOption({
             description: "Выберите пользователя",
@@ -101,9 +108,12 @@ class CurrencyCommands {
         }
     }
 
-    @Slash({ description: "Remove currency from a user" })
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
+    @Slash({ description: "Снять валюту у пользователя" })
     @EnsureUser()
+    @Guard(
+        EnsureUserGuard()
+    )
+    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async remove(
         @SlashOption({
             description: "Выберите пользователя",
@@ -142,9 +152,13 @@ class CurrencyCommands {
         }
     }
 
-    @Slash({ description: "Check user's currency balance" })
-    @Guard(ChannelGuard("user_commands_channel"))
+    @Slash({ description: "Посмотреть баланс пользователя" })
     @EnsureUser()
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard()
+    )
+    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async balance(
         @SlashOption({
             description: "Выберите пользователя (не указывайте, чтобы проверить свой баланс)",
@@ -173,9 +187,12 @@ class CurrencyCommands {
         }
     }
 
-    @Slash({ description: "Transfer currency to another user" })
-    @Guard(ChannelGuard("user_commands_channel"))
+    @Slash({ description: "Перевести валюту другому пользователю" })
     @EnsureUser()
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard()
+    )
     async transfer(
         @SlashOption({
             description: "Выберите пользователя, которому хотите перевести валюту",
@@ -251,8 +268,11 @@ class CurrencyCommands {
         }
     }
 
-    @Slash({ description: "Show top users by currency amount" })
-    @Guard(ChannelGuard("user_commands_channel"))
+    @Slash({ description: "Показать топ юзеров по количеству валюты" })
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard()
+    )
     async top(
         @SlashOption({
             description: "Количество пользователей для отображения",

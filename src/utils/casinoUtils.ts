@@ -1,7 +1,5 @@
 import { CasinoResult, CasinoMultiplier } from "../types/casinoTypes.js";
 
-// Возможные множители выигрыша с шансами выпадения
-// Уменьшенные шансы на победу и увеличенный шанс проигрыша
 const CASINO_MULTIPLIERS: CasinoMultiplier[] = [
     { 
         chance: 0.005, 
@@ -54,7 +52,6 @@ export function determineCasinoResult(): CasinoResult {
         }
     }
     
-    // По умолчанию возвращаем проигрыш (последний элемент массива)
     const defaultResult = CASINO_MULTIPLIERS[CASINO_MULTIPLIERS.length - 1];
     return {
         multiplier: defaultResult.value,

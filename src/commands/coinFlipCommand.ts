@@ -9,16 +9,18 @@ import { createErrorEmbed, createCoinflipEmbed } from "../utils/embedBuilder.js"
 import { CheckMoney } from "../utils/decorators/CheckMoney.js";
 import { Cooldown } from "../utils/decorators/CoommandCooldown.js";
 import logger from "../services/logger.js";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 class CoinflipCommand {
     @Slash({ description: "Подкинуть монетку" })
+    @EnsureUser()
     @Guard(
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
+        EnsureUserGuard(),
         Cooldown({ seconds: 10 })
     )
-    @EnsureUser()
     async coin(
         @SlashChoice({ name: "Орел", value: "eagle" })
         @SlashChoice({ name: "Решка", value: "reshka" })

@@ -7,16 +7,18 @@ import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
 import { createDuelEmbed } from "../utils/embedBuilder.js";
 import { AppDataSource } from "../services/database.js";
 import { Currency } from "../entities/Currency.js";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 export class DuelCommand {
     @Slash({ description: "Начать дуэль", name: "duel" })
+    @EnsureUser()
     @Guard(
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
         Cooldown({ seconds: 30 }),
+        EnsureUserGuard()
     )
-    @EnsureUser()
     async startDuel(
         @SlashOption({
             name: "bet",
@@ -51,7 +53,10 @@ export class DuelCommand {
     }
 
     @ButtonComponent({ id: /duel_\d+_\d+/ })
-    @Guard(CheckMoney())
+    @Guard(
+        CheckMoney(),
+        EnsureUserGuard()
+    )
     async acceptDuel(interaction: ButtonInteraction) {
         try {
             const [_, creatorId, betStr] = interaction.customId.split("_");
@@ -65,11 +70,9 @@ export class DuelCommand {
                 return;
             }
 
-            // Определяем победителя
             const winner = Math.random() > 0.5 ? interaction.user : await interaction.client.users.fetch(creatorId);
             const winAmount = Math.floor((bet * 2 * 0.97) - (bet));
 
-            // Обновляем балансы
             const currencyRepo = AppDataSource.getRepository(Currency);
             const [winnerCurrency, loserCurrency] = await Promise.all([
                 currencyRepo.findOne({ where: { user: { discordId: winner.id } } }),
@@ -86,7 +89,6 @@ export class DuelCommand {
                 await manager.save([winnerCurrency, loserCurrency]);
             });
 
-            // Обновляем сообщение
             await interaction.message.edit({
                 embeds: [createDuelEmbed(
                     bet,

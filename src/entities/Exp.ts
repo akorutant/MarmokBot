@@ -13,7 +13,7 @@ export class Exp {
     unsigned: true,
     transformer: {
       to: (value: bigint) => value.toString(),
-      from: (value: string) => BigInt(value),
+      from: (value: string | null) => BigInt(value || '0'),
     },
   })
   exp!: bigint;

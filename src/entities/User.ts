@@ -2,6 +2,7 @@ import { Entity, Column, Index, PrimaryGeneratedColumn, OneToOne } from "typeorm
 import type { Relation } from "typeorm";
 import type { Exp } from "./Exp.js";
 import { Currency } from "./Currency.js";
+import { GiftStats } from "./GiftStats.js";
 
 @Entity()
 export class User {
@@ -18,7 +19,7 @@ export class User {
     unsigned: true,
     transformer: {
       to: (value: bigint) => value.toString(),
-      from: (value: string) => BigInt(value),
+      from: (value: string | null) => BigInt(value || '0'), 
     },
   })
   messageCount!: bigint;
@@ -29,7 +30,7 @@ export class User {
     unsigned: true,
     transformer: {
       to: (value: bigint) => value.toString(),
-      from: (value: string) => BigInt(value),
+      from: (value: string | null) => BigInt(value || '0'),
     },
   })
   voiceMinutes!: bigint;
@@ -45,4 +46,7 @@ export class User {
 
   @OneToOne("Currency","user")
   currency!: Relation<Currency>;
+
+  @OneToOne("GiftStats", "user")
+  giftStats!: Relation<GiftStats>;
 }

@@ -57,13 +57,11 @@ export function EnsureUser() {
         const currencyRepository = AppDataSource.getRepository(Currency);
         const giftStatsRepository = AppDataSource.getRepository(GiftStats);
 
-        // Ищем пользователя с полными зависимостями
         let user = await userRepository.findOne({
           where: { discordId },
           relations: ["exp", "currency"]
         });
 
-        // Создаем нового пользователя, если он отсутствует
         if (!user) {
           logger.info(`EnsureUser: Создание нового пользователя ${discordId}`);
 
@@ -75,7 +73,6 @@ export function EnsureUser() {
           await userRepository.save(user);
         }
 
-        // Всегда проверяем и создаем запись EXP, если она отсутствует
         if (!user.exp) {
           const newExp = expRepository.create({
             exp: 0n,
@@ -86,7 +83,6 @@ export function EnsureUser() {
           logger.debug(`EnsureUser: Создана запись опыта для пользователя ${discordId}`);
         }
 
-        // Всегда проверяем и создаем запись Currency, если она отсутствует
         if (!user.currency) {
           const newCurrency = currencyRepository.create({
             currencyCount: 0n,
@@ -96,7 +92,6 @@ export function EnsureUser() {
           logger.debug(`EnsureUser: Создана запись валюты для пользователя ${discordId}`);
         }
 
-        // Проверяем и создаем запись GiftStats, если она отсутствует
         const giftStats = await giftStatsRepository.findOne({
           where: { discordId }
         });

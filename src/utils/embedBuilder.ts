@@ -4,6 +4,7 @@ import { getHoursString } from "./hoursUtils.js";
 import { GiftReward } from "../types/giftTypes.js";
 import { CasinoResult } from "../types/casinoTypes.js";
 import { RARITY_COLORS } from "../constants/colors.js";
+import { pluralizeGifts } from "./giftUtils.js";
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2,
@@ -410,13 +411,12 @@ export function createGiftResultEmbed(
                     (totalWin === 0 ? RARITY_COLORS.common : RARITY_COLORS.rare);
   
   const embed = new EmbedBuilder()
-      .setTitle(`✨ 🎁 ОТКРЫТИЕ ПОДАРКА 🎁 ✨`)
-      .setDescription(`<@${interaction.user.id}> с нетерпением открывает свой подарок...`)
+      .setTitle(`✨ 🎁 ОТКРЫТИЕ ${pluralizeGifts(results.length).toUpperCase()} 🎁 ✨`)
+      .setDescription(`<@${interaction.user.id}> открывает ${results.length} ${pluralizeGifts(results.length)}...`)
       .setColor(embedColor)
       .setTimestamp()
       .setThumbnail(interaction.user.displayAvatarURL({ size: 128 }));
   
-  // Обрабатываем подарок
   const reward = results[0];
   let valueText = '';
   let rewardTitle = '';
@@ -443,11 +443,6 @@ export function createGiftResultEmbed(
       {
           name: '💰 Получено',
           value: `\`${totalWin}$\``,
-          inline: true
-      },
-      {
-          name: '💸 Потрачено',
-          value: `\`${totalCost}$\``,
           inline: true
       },
       {
@@ -494,7 +489,6 @@ export function createCasinoResultEmbed(
   const profit = winAmount - bet;
   const isWin = profit > 0;
   
-  // Выбираем цвет в зависимости от исхода
   const embedColor = profit > 0 ? RARITY_COLORS.legendary : 
                     (winAmount === bet ? RARITY_COLORS.rare : RARITY_COLORS.common);
   
@@ -505,7 +499,6 @@ export function createCasinoResultEmbed(
       .setTimestamp()
       .setThumbnail(interaction.user.displayAvatarURL({ size: 128 }));
   
-  // Форматируем результат с использованием блоков кода для выделения
   let resultBlock;
   if (profit > 0) {
       resultBlock = `\`\`\`diff\n+ ${result.description}\n\`\`\``;
@@ -520,13 +513,11 @@ export function createCasinoResultEmbed(
       value: resultBlock
   });
   
-  // Добавляем разделитель с декоративными элементами
   embed.addFields({
       name: '┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅',
       value: '📊 **Финансовый отчет** 📊'
   });
   
-  // Добавляем финансовую информацию
   embed.addFields(
       {
           name: '💰 Ставка',
@@ -545,7 +536,6 @@ export function createCasinoResultEmbed(
       }
   );
   
-  // Разные футеры в зависимости от результата
   if (isWin) {
       embed.setFooter({ 
           text: '🍀 Удача на вашей стороне! Поздравляем с выигрышем!',

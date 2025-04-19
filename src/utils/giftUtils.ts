@@ -8,9 +8,7 @@ export function openGift(): GiftReward {
     const random = Math.random();
     let cumulativeChance = 0;
     
-    // Примечание: вероятности должны быть настроены в GIFT_TYPES
-    // Эта функция только использует их для определения результата
-    
+
     for (const item of GIFT_TYPES) {
         cumulativeChance += item.chance;
         if (random <= cumulativeChance) {
@@ -19,19 +17,15 @@ export function openGift(): GiftReward {
             if (reward.type === 'currency') {
                 switch (reward.rarity) {
                     case 'common':
-                        // Немного уменьшен верхний диапазон
                         reward.amount = getRandomInt(50, 150);
                         break;
                     case 'uncommon':
-                        // Немного уменьшен верхний диапазон
                         reward.amount = getRandomInt(200, 400);
                         break;
                     case 'rare':
-                        // Добавлен промежуточный уровень
                         reward.amount = getRandomInt(450, 700);
                         break;
                     case 'legendary':
-                        // Сохранен высокий выигрыш для легендарных
                         reward.amount = getRandomInt(750, 1200);
                         break;
                 }
@@ -41,7 +35,6 @@ export function openGift(): GiftReward {
         }
     }
     
-    // Возвращаем первый элемент как значение по умолчанию
     return GIFT_TYPES[0].reward;
 }
 
@@ -51,3 +44,9 @@ export function openGift(): GiftReward {
 export function getRandomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
+export function pluralizeGifts(count: number): string {
+    if (count % 10 === 1 && count % 100 !== 11) return 'подарок';
+    if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) return 'подарка';
+    return 'подарков';
+  }

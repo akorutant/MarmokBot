@@ -16,7 +16,6 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
             let targetUserId: string | undefined;
 
             if (interaction instanceof CommandInteraction) {
-                // Для команды - берем ставку из опций
                 const betOption = interaction.options.get("bet");
                 if (!betOption?.value) {
                     await interaction.reply({
@@ -27,7 +26,6 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
                 }
                 bet = betOption.value as number;
             } else {
-                // Для кнопки - парсим данные из customId
                 const match = interaction.customId.match(/duel_(\d+)_(\d+)/);
                 if (!match) {
                     await interaction.reply({
@@ -48,7 +46,6 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
                 return;
             }
 
-            // Проверяем баланс текущего пользователя
             const userRepo = AppDataSource.getRepository(User);
             const user = await userRepo.findOne({
                 where: { discordId: interaction.user.id },
@@ -71,7 +68,6 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
                 return;
             }
 
-            // Если есть оппонент (для кнопки) - проверяем его баланс
             if (targetUserId) {
                 const targetUser = await userRepo.findOne({
                     where: { discordId: targetUserId },

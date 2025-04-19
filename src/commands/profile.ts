@@ -18,12 +18,16 @@ import { Config } from "../entities/Config.js";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 class ProfileCommand {
     @Slash({ description: "Показать профиль пользователя" })
-    @Guard(ChannelGuard("user_commands_channel"))
     @EnsureUser()
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard()
+    )
     async profile(
         @SlashOption({
             name: "user",
@@ -37,24 +41,20 @@ class ProfileCommand {
         try {
             await interaction.deferReply();
 
-            // Get target user
             const targetUser = user ? await interaction.client.users.fetch(user.id) : interaction.user;
             logger.info(`Generating profile for user: ${targetUser.tag} (${targetUser.id})`);
 
-            // Get user data from database
             const userRepository = AppDataSource.getRepository(DBUser);
             const dbUser = await userRepository.findOne({
                 where: { discordId: targetUser.id },
                 relations: ["exp", "currency"]
             });
 
-            // Extract user stats
             const messageCount = dbUser?.messageCount ?? BigInt(0);
             const voiceMinutes = dbUser?.voiceMinutes ?? BigInt(0);
             const expValue = dbUser?.exp?.exp ?? BigInt(0);
             const currencyValue = dbUser?.currency?.currencyCount ?? BigInt(0);
 
-            // Get or correct level value
             let levelValue = dbUser?.exp?.level ?? 1;
             const calculatedLevel = getMaxLevelForExp(expValue);
 
@@ -72,18 +72,15 @@ class ProfileCommand {
 
             logger.info(`User stats - Messages: ${messageCount}, Voice: ${voiceMinutes}, Level: ${levelValue}, Progress: ${progressPercentage}%`);
 
-            // Проверяем наличие кастомного фона
             let backgroundImagePath = undefined;
             if (targetUser.id === interaction.user.id) {
                 try {
-                    // Проверяем запись в конфиге
                     const configRepo = AppDataSource.getRepository(Config);
                     const config = await configRepo.findOne({
                         where: { key: "custom_background", value: targetUser.id }
                     });
                     
                     if (config) {
-                        // Проверяем существование файла
                         const __filename = fileURLToPath(import.meta.url);
                         const __dirname = path.dirname(__filename);
                         const imagePath = path.join(__dirname, '../../assets/images', `${targetUser.id}.png`);

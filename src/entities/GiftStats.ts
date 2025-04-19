@@ -1,5 +1,4 @@
-import { Entity, Column, Index, PrimaryGeneratedColumn, OneToOne, JoinColumn } from "typeorm";
-import type { Relation } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne, BeforeInsert, BeforeUpdate } from "typeorm";
 import { User } from "./User.js";
 
 @Entity()
@@ -7,58 +6,42 @@ export class GiftStats {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @OneToOne(() => User)
-  @JoinColumn()
-  user!: Relation<User>;
+  @Column({ unique: true })
+  discordId!: string;
 
   @Column()
   userId!: number;
 
-  @Index({ unique: true })
-  @Column()
-  discordId!: string;
+  @ManyToOne(() => User, user => user.giftStats)
+  @JoinColumn({ name: 'userId' })
+  user!: User;
 
-  @Column({
-    type: "bigint",
-    default: () => "0",
-    unsigned: true,
+  @Column('bigint', { 
     transformer: {
-      to: (value: bigint) => value.toString(),
-      from: (value: string) => BigInt(value),
+      from: (value: string | null) => value === null ? BigInt(0) : BigInt(value),
+      to: (value: bigint) => String(value)
     },
+    default: "0"  
   })
   trackedVoiceMinutes!: bigint;
 
-  @Column({
-    type: "int",
-    default: 0,
-    unsigned: true,
-  })
+  @Column({ default: 0 })
   claimedGiftsFromVoice!: number;
 
-  @Column({
-    type: "timestamp",
-    nullable: true,
-  })
-  lastDailyGiftClaim!: Date | null;
-
-  @Column({
-    type: "int",
-    default: 0,
-    unsigned: true,
-  })
+  @Column({ default: 0 })
   totalGiftsClaimed!: number;
 
-  @Column({
-    type: "timestamp",
-    default: () => "CURRENT_TIMESTAMP",
-  })
-  createdAt!: Date;
+  @Column({ default: 0 })
+  availableGifts!: number;
 
-  @Column({
-    type: "timestamp",
-    default: () => "CURRENT_TIMESTAMP",
-    onUpdate: "CURRENT_TIMESTAMP",
-  })
-  updatedAt!: Date;
+  @Column({ nullable: true, type: 'datetime' })
+  lastDailyGiftClaim!: Date | null;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  ensureValidValues() {
+    if (this.trackedVoiceMinutes === null || this.trackedVoiceMinutes === undefined) {
+      this.trackedVoiceMinutes = BigInt(0);
+    }
+  }
 }

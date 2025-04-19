@@ -31,7 +31,6 @@ export async function seedDefaultConfigs() {
             logger.info("Configs already exist. Seed skipped.");
         }
 
-        // Проверяем и инициализируем таблицу GiftStats
         await initializeGiftStats();
     } catch (error) {
         logger.error("Ошибка сидирования дефолтных конфигов:", error);

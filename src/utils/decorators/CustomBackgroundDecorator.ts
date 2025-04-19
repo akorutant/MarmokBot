@@ -6,7 +6,6 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { User } from "discord.js";
 
-// Определяем тип для параметров функции generateProfileImage
 type ProfileImageParams = [
   user: User,
   messageCount: number,
@@ -32,25 +31,19 @@ export function WithCustomBackground() {
     descriptor.value = async function (...args: any[]) {
       try {
         const interaction = args[args.length - 1];
-        // Получаем целевого пользователя (чей профиль запрашивается)
         const targetUser = args[0] || interaction.user;
         
         logger.info(`Проверка наличия кастомного фона для пользователя: ${targetUser.id}`);
         
-        // Проверяем наличие кастомного фона для пользователя
         const customBackgroundPath = await getCustomBackgroundPath(targetUser.id);
         
         if (customBackgroundPath) {
           logger.info(`Найден кастомный фон для пользователя ${targetUser.id}: ${customBackgroundPath}`);
           
-          // Сохраняем ссылку на контекст this
           const self = this;
           
-          // Вместо модифицирования метода, мы передаем путь к фону в аргументы
-          // Так как generateProfileImage ожидает backgroundImagePath как последний аргумент
           const newArgs = [...args, customBackgroundPath];
           
-          // Передаем контекст this явно
           return await originalMethod.apply(self, newArgs);
         } else {
           logger.info(`Кастомный фон для пользователя ${targetUser.id} не найден`);
@@ -84,16 +77,13 @@ async function getCustomBackgroundPath(userId: string): Promise<string | null> {
       return null;
     }
 
-    // Получаем путь к директории с assets
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const assetsPath = path.join(__dirname, '../../../assets/images');
     
-    // Формируем имя файла с кастомным фоном
     const customBackgroundFilename = `${userId}.png`;
     const customBackgroundFullPath = path.join(assetsPath, customBackgroundFilename);
     
-    // Проверяем, существует ли файл
     if (fs.existsSync(customBackgroundFullPath)) {
       logger.info(`Найден файл кастомного фона для пользователя ${userId}: ${customBackgroundFullPath}`);
       return customBackgroundFullPath;

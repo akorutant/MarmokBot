@@ -6,6 +6,7 @@ import { AppDataSource } from "./services/database.js";
 import { setupLogServer } from "./services/logServer/logServer.js";
 import { seedDefaultConfigs } from "./services/initDatabase.js";
 import { setDiscordClient } from "./utils/decorators/CheckLevelUp.js";
+import { setDiscordClient as setDiscordClientGifts } from "./utils/decorators/CheckGiftProgress.js";
 
 export const bot = new Client({
   intents: [
@@ -53,6 +54,7 @@ async function run() {
 bot.once("ready", async () => {
   await bot.initApplicationCommands();
   setDiscordClient(bot);
+  setDiscordClientGifts(bot);
   console.log("🤖 Bot started");
 });
 

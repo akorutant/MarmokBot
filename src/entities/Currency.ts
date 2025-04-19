@@ -12,11 +12,11 @@ export class Currency {
         default: () => "0",
         unsigned: true,
         transformer: {
-            to: (value: bigint) => value.toString(),
-            from: (value: string) => BigInt(value),
+          to: (value: bigint) => value.toString(),
+          from: (value: string | null) => BigInt(value || '0'),
         },
-    })
-    currencyCount!: bigint;
+      })
+      currencyCount!: bigint;
 
     @Column({
         type: "timestamp",
@@ -24,7 +24,7 @@ export class Currency {
     })
     createdAt!: Date;
 
-    @OneToOne("User", "exp", { onDelete: "CASCADE" })
+    @OneToOne("User", "currency", { onDelete: "CASCADE" })  
     @JoinColumn({ name: "user_id" })
     user!: Relation<User>;
 }

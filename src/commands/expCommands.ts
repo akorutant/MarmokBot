@@ -24,14 +24,18 @@ import {
   createExpEmbed
 } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
-@SlashGroup({ description: "Commands for managing user EXP", name: "exp" })
+@SlashGroup({ description: "Команды для изменения EXP", name: "exp" })
 @SlashGroup("exp")
 class ExpCommands {
-  @Slash({ description: "Set user EXP to a specific value" })
-  @RequireRoles(["high_mod_level", "medium_mod_level"])
+  @Slash({ description: "Установить кол-во EXP пользователю" })
   @EnsureUser()
+  @Guard(
+      EnsureUserGuard()
+  )
+  @RequireRoles(["high_mod_level", "medium_mod_level"])
   async set(
     @SlashOption({
       description: "Выберите пользователя",
@@ -73,9 +77,12 @@ class ExpCommands {
     }
   }
 
-  @Slash({ description: "Add EXP to a user" })
-  @RequireRoles(["high_mod_level", "medium_mod_level"])
+  @Slash({ description: "Добавить кол-во EXP пользователю" })
   @EnsureUser()
+  @Guard(
+    EnsureUserGuard()
+  )
+  @RequireRoles(["high_mod_level", "medium_mod_level"])
   async add(
     @SlashOption({
       description: "Выберите пользователя",
@@ -128,9 +135,12 @@ class ExpCommands {
     }
   }
 
-  @Slash({ description: "Remove EXP from a user" })
-  @RequireRoles(["high_mod_level", "medium_mod_level"])
+  @Slash({ description: "Снять EXP у пользователя" })
   @EnsureUser()
+  @Guard(
+    EnsureUserGuard()
+  )
+  @RequireRoles(["high_mod_level", "medium_mod_level"])
   async remove(
     @SlashOption({
       description: "Выберите пользователя",
@@ -183,47 +193,6 @@ class ExpCommands {
       const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
       await interaction.reply({ embeds: [embed] });
       logger.error("Ошибка при удалении EXP: %O", error);
-    }
-  }
-
-  @Slash({ description: "Show top users by total EXP" })
-  @Guard(ChannelGuard("user_commands_channel"))
-  async top(
-    @SlashOption({
-      description: "Количество пользователей для отображения",
-      name: "limit",
-      required: false,
-      type: ApplicationCommandOptionType.Number
-    })
-    limit: number = 10,
-    interaction: CommandInteraction,
-  ) {
-    try {
-      if (limit <= 0 || limit > 25) {
-        limit = 10;
-      }
-
-      const expRepository = AppDataSource.getRepository(Exp);
-
-      const topUsers = await expRepository
-        .createQueryBuilder("exp")
-        .leftJoinAndSelect("exp.user", "user")
-        .orderBy("exp.exp", "DESC")
-        .take(limit)
-        .getMany();
-
-      if (topUsers.length === 0) {
-        const embed = createErrorEmbed("На сервере пока нет пользователей с опытом!", interaction.user);
-        await interaction.reply({ embeds: [embed] });
-        return;
-      }
-
-      const embed = createExpTopEmbed(topUsers, limit, interaction.user, interaction.guild);
-      await interaction.reply({ embeds: [embed] });
-    } catch (error) {
-      const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
-      await interaction.reply({ embeds: [embed] });
-      logger.error("Ошибка при получении топа пользователей по опыту: %O", error);
     }
   }
 }

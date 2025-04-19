@@ -16,12 +16,16 @@ import {
     isMaxLevel
 } from "../utils/levelUpUtils.js";
 import logger from "../services/logger.js";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 class ModProfileCommand {
     @Slash({ description: "Показать профиль пользователя" })
-    @RequireRoles(["high_mod_level", "medium_mod_level"])
     @EnsureUser()
+    @Guard(
+        EnsureUserGuard(),
+    )
+    @RequireRoles(["high_mod_level", "medium_mod_level"])
     async modprofile(
         @SlashOption({
             name: "user",

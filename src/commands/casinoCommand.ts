@@ -10,6 +10,7 @@ import { Currency } from "../entities/Currency.js";
 import { Cooldown } from "../utils/decorators/CoommandCooldown.js";
 import { determineCasinoResult } from "../utils/casinoUtils.js";
 import { CheckMoney } from "../utils/decorators/CheckMoney.js";
+import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 class CasinoCommand {
@@ -17,14 +18,15 @@ class CasinoCommand {
     private readonly MAX_BET = 10000; 
     @Slash({ 
         name: "casino", 
-        description: "Make an installation in the casino and turn on luck" 
+        description: "Проверьте свою удачу в казино" 
     })
+    @EnsureUser()
     @Guard(
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
+        EnsureUserGuard(),
         Cooldown({ hours: 3 })
     )
-    @EnsureUser()
     async casino(
         @SlashOption({
             name: "bet",
@@ -57,7 +59,6 @@ class CasinoCommand {
             
             const currencyRepository = AppDataSource.getRepository(Currency);
             
-            // Проверяем, хватает ли денег на ставку
             if (dbUser.currency.currencyCount < BigInt(bet)) {
                 const errorEmbed = createErrorEmbed(
                     `У вас недостаточно средств! Необходимо ${bet}$, у вас ${dbUser.currency.currencyCount}$`, 
@@ -67,20 +68,16 @@ class CasinoCommand {
                 return;
             }
             
-            // Снимаем ставку со счета
             const newBalance = dbUser.currency.currencyCount - BigInt(bet);
             await currencyRepository.update(
                 { id: dbUser.currency.id },
                 { currencyCount: newBalance }
             );
             
-            // Определяем результат случайным образом
             const result = determineCasinoResult();
             
-            // Вычисляем выигрыш
             const winAmount = Math.floor(bet * result.multiplier);
             
-            // Если есть выигрыш, добавляем его на счет
             if (winAmount > 0) {
                 await currencyRepository.update(
                     { id: dbUser.currency.id },
@@ -88,7 +85,6 @@ class CasinoCommand {
                 );
             }
             
-            // Создаем эмбед с результатами
             const embed = createCasinoResultEmbed(bet, winAmount, result, interaction);
             
             logger.info(`Пользователь ${discordUser.id} сделал ставку ${bet}$ в казино и ${winAmount > 0 ? `выиграл ${winAmount}$` : 'проиграл'}`);

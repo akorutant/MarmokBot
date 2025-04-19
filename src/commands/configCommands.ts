@@ -11,10 +11,10 @@ import { fileURLToPath } from "url";
 import axios from "axios";
 
 @Discord()
-@SlashGroup({ description: "Commands for managing server config", name: "config" })
+@SlashGroup({ description: "Команды для изменения конфига", name: "config" })
 @SlashGroup("config")
 class ConfigCommands {
-    @Slash({ description: "Add config value" })
+    @Slash({ description: "Добавить значение в конфиг" })
     @RequireRoles(["high_mod_level", "medium_mod_level"])
     async add(
         @SlashChoice({ name: "Low Moderation Level", value: "low_mod_level" })
@@ -54,7 +54,7 @@ class ConfigCommands {
         }
     }
 
-    @Slash({ description: "Set custom background for user profile" })
+    @Slash({ description: "Установить кастомный фон профиля" })
     @RequireRoles(["high_mod_level"])
     async setbackground(
         @SlashOption({
@@ -69,33 +69,27 @@ class ConfigCommands {
         try {
             await interaction.deferReply();
 
-            // Получаем ID пользователя, вызвавшего команду
             const userId = interaction.user.id;
             
-            // Проверка валидности файла
             if (!attachment.contentType?.startsWith('image/')) {
                 const embed = createErrorEmbed("Загруженный файл не является изображением.", interaction.user);
                 return interaction.editReply({ embeds: [embed] });
             }
 
-            // Путь для сохранения изображения
             const __filename = fileURLToPath(import.meta.url);
             const __dirname = path.dirname(__filename);
             const assetsPath = path.join(__dirname, '../../assets/images');
             const customBackgroundFullPath = path.join(assetsPath, `${userId}.png`);
 
-            // Создание директории, если не существует
             if (!fs.existsSync(assetsPath)) {
                 fs.mkdirSync(assetsPath, { recursive: true });
                 logger.info(`Создана директория для хранения изображений: ${assetsPath}`);
             }
 
-            // Скачивание и сохранение изображения
             const response = await axios.get(attachment.url, { responseType: 'arraybuffer' });
             fs.writeFileSync(customBackgroundFullPath, Buffer.from(response.data));
             logger.info(`Фоновое изображение сохранено для пользователя ${userId}: ${customBackgroundFullPath}`);
 
-            // Добавление записи в конфиг, если ее еще нет
             const configRepository = AppDataSource.getRepository(Config);
             const existingConfig = await configRepository.findOne({
                 where: { key: "custom_background", value: userId }
@@ -119,24 +113,20 @@ class ConfigCommands {
         }
     }
 
-    @Slash({ description: "Remove custom background for your profile" })
+    @Slash({ description: "Убрать кастомный фон профиля" })
     @RequireRoles(["high_mod_level"])
     async removebackground(
         interaction: CommandInteraction
     ) {
         try {
             await interaction.deferReply();
-
-            // Получаем ID пользователя, вызвавшего команду
             const userId = interaction.user.id;
 
-            // Путь к файлу изображения
             const __filename = fileURLToPath(import.meta.url);
             const __dirname = path.dirname(__filename);
             const assetsPath = path.join(__dirname, '../../assets/images');
             const customBackgroundFullPath = path.join(assetsPath, `${userId}.png`);
 
-            // Удаление файла, если он существует
             let fileDeleted = false;
             if (fs.existsSync(customBackgroundFullPath)) {
                 fs.unlinkSync(customBackgroundFullPath);
@@ -144,7 +134,6 @@ class ConfigCommands {
                 logger.info(`Удален файл фона для пользователя ${userId}: ${customBackgroundFullPath}`);
             }
 
-            // Удаление записи из конфига
             const configRepository = AppDataSource.getRepository(Config);
             const result = await configRepository.delete({
                 key: "custom_background",
@@ -169,7 +158,7 @@ class ConfigCommands {
         }
     }
 
-    @Slash({ description: "Remove config value" })
+    @Slash({ description: "Удалить значение конфига" })
     @RequireRoles(["high_mod_level", "medium_mod_level"])
     async remove(
         @SlashChoice({ name: "Low Moderation Level", value: "low_mod_level" })
@@ -203,7 +192,6 @@ class ConfigCommands {
                 return interaction.reply({ embeds: [embed] });
             }
 
-            // Если удаляем запись custom_background, также удаляем файл изображения
             if (key === "custom_background") {
                 try {
                     const __filename = fileURLToPath(import.meta.url);
@@ -232,7 +220,7 @@ class ConfigCommands {
         }
     }
 
-    @Slash({ description: "Get config value" })
+    @Slash({ description: "Получить все значения конфига" })
     @RequireRoles(["high_mod_level", "medium_mod_level"])
     async get(
         interaction: CommandInteraction
