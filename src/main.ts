@@ -49,7 +49,6 @@ async function run() {
     throw Error("Could not find BOT_TOKEN in your environment");
   }
 
-  // Устанавливаем defaultPermission: false для защищенных команд
 
   await bot.login(process.env.BOT_TOKEN);
 }
@@ -57,6 +56,7 @@ async function run() {
 bot.once("ready", async () => {
   await bot.initApplicationCommands();
   await setupCommandPermissions(bot, process.env.BOT_TOKEN!)
+  await bot.guilds.cache.get("345629080840044545")?.commands.set([]); // УБРАТЬ ОБЯЗАТЕЛЬНО
   setDiscordClient(bot);
   setDiscordClientGifts(bot);
   console.log("🤖 Bot started");
