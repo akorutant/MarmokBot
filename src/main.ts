@@ -7,7 +7,6 @@ import { setupLogServer } from "./services/logServer/logServer.js";
 import { seedDefaultConfigs } from "./services/initDatabase.js";
 import { setDiscordClient } from "./utils/decorators/CheckLevelUp.js";
 import { setDiscordClient as setDiscordClientGifts } from "./utils/decorators/CheckGiftProgress.js";
-import { setupCommandPermissions } from "./utils/setupHiddenCommands.js";
 
 export const bot = new Client({
   intents: [
@@ -55,8 +54,6 @@ async function run() {
 
 bot.once("ready", async () => {
   await bot.initApplicationCommands();
-  await setupCommandPermissions(bot, process.env.BOT_TOKEN!)
-  await bot.guilds.cache.get("345629080840044545")?.commands.set([]); // УБРАТЬ ОБЯЗАТЕЛЬНО
   setDiscordClient(bot);
   setDiscordClientGifts(bot);
   console.log("🤖 Bot started");
