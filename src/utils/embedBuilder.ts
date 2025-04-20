@@ -430,9 +430,9 @@ export function createGiftResultEmbed(
   let rewardTitle = 'Награда за подарки';
   for (let result of results){
     if (result.type === 'nothing') {
-      valueText += `${result.emoji} Пусто`
+      valueText += `${result.emoji} Пусто\n`
     } else {
-      valueText += `${result.emoji} ${result.name} - ${result.amount}`
+      valueText += `${result.emoji} ${result.name} - ${result.amount}\n`
     }
   }
 
@@ -447,11 +447,6 @@ export function createGiftResultEmbed(
   });
   
   embed.addFields(
-      {
-          name: '💰 Получено',
-          value: `\`${totalWin}$\``,
-          inline: true
-      },
       {
           name: `${isProfit ? '📈' : '📉'} Итог`,
           value: `\`${profit > 0 ? '+' : ''}${profit}$\``,
