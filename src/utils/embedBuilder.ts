@@ -434,7 +434,6 @@ export function createGiftResultEmbed(
     } else {
       valueText += `${result.emoji} ${result.name} - ${result.amount}`
     }
-    
   }
 
   embed.addFields({

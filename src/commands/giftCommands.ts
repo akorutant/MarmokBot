@@ -88,9 +88,7 @@ class GiftCommand {
                 );
             }
             
-            const firstResult = results[0];
-            const oneResults = [firstResult];
-            const embed = createGiftResultEmbed(oneResults, totalWin, 0, interaction);
+            const embed = createGiftResultEmbed(results, totalWin, 0, interaction);
             
             if (giftsToOpen > 1) {
                 embed.setTitle(`🎁 Открытие ${giftsToOpen} ${pluralizeGifts(giftsToOpen)} 🎁`);
