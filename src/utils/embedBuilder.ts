@@ -431,8 +431,10 @@ export function createGiftResultEmbed(
   for (let result of results){
     if (result.type === 'nothing') {
       valueText += `${result.emoji} Пусто`
+    } else {
+      valueText += `${result.emoji} ${result.name} - ${result.amount}`
     }
-    valueText += `${result.emoji} ${result.name} - ${result.amount}`
+    
   }
 
   embed.addFields({
