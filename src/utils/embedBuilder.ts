@@ -432,18 +432,13 @@ export function createGiftResultEmbed(
     if (result.type === 'nothing') {
       valueText += `${result.emoji} Пусто\n`
     } else {
-      valueText += `${result.emoji} ${result.name} - ${result.amount}\n`
+      valueText += `${result.emoji} ${result.name} - ${result.amount}$\n`
     }
   }
 
   embed.addFields({
       name: rewardTitle,
       value: `\`\`\`${valueText}\`\`\``
-  });
-  
-  embed.addFields({
-      name: '┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅',
-      value: '📊 **Финансовый отчет** 📊'
   });
   
   embed.addFields(
