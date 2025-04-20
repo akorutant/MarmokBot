@@ -426,24 +426,19 @@ export function createGiftResultEmbed(
       .setTimestamp()
       .setThumbnail(interaction.user.displayAvatarURL({ size: 128 }));
   
-  const reward = results[0];
   let valueText = '';
-  let rewardTitle = '';
-  
-  if (results.length <= 1) {
-    if (reward.type === 'nothing') {
-      valueText = '```Вы разворачиваете подарок и находите... ничего особенного.```';
-      rewardTitle = `${reward.emoji} В этот раз не повезло`;
-  } else if (reward.type === 'currency') {
-      valueText = `\`\`\`diff\n+ ${reward.amount}$\n\`\`\``;
-      rewardTitle = `${reward.emoji} ${reward.name}`;
+  let rewardTitle = 'Награда за подарки';
+  for (let result of results){
+    if (result.type === 'nothing') {
+      valueText += `${result.emoji} Пусто`
+    }
+    valueText += `${result.emoji} ${result.name} - ${result.amount}`
   }
-  
+
   embed.addFields({
       name: rewardTitle,
-      value: valueText
+      value: `\`\`\`${valueText}\`\`\``
   });
-  }
   
   embed.addFields({
       name: '┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅',
