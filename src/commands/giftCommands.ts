@@ -1,4 +1,4 @@
-import { Discord, Slash, SlashOption, Guard } from "discordx";
+import { Discord, Slash, SlashOption, Guard, SlashGroup } from "discordx";
 import { CommandInteraction, ApplicationCommandOptionType } from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { User as DBUser } from "../entities/User.js";
@@ -13,12 +13,15 @@ import { GiftStats } from "../entities/GiftStats.js";
 import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
+
 @Discord()
+@SlashGroup({ description: "Команды взаимодействия с подарками", name: "gift" })
+@SlashGroup("gift")
 class GiftCommand {
     private readonly VOICE_MINUTES_PER_GIFT = 480; 
 
     @Slash({
-        name: "opengift",
+        name: "open",
         description: "Открыть накопленный подарок"
     })
     @EnsureUser()
@@ -26,7 +29,7 @@ class GiftCommand {
         ChannelGuard("user_commands_channel"),
         EnsureUserGuard()
     )
-    async opengift(
+    async open(
         @SlashOption({
             name: "amount",
             description: "Количество подарков для открытия (по умолчанию 1)",
@@ -106,7 +109,7 @@ class GiftCommand {
     }
 
     @Slash({
-        name: "mygifts",
+        name: "list",
         description: "Проверить информацию о доступных подарках"
     })
     @EnsureUser()
@@ -114,7 +117,7 @@ class GiftCommand {
         ChannelGuard("user_commands_channel"),
         EnsureUserGuard()
     )
-    async mygifts(
+    async list(
         interaction: CommandInteraction
     ) {
         try {
@@ -166,7 +169,7 @@ class GiftCommand {
     /* Команды модератора для управления подарками */
     
     @Slash({
-        name: "addgifts",
+        name: "add",
         description: "Добавить подарки пользователю [Модератор]"
     })
     @EnsureUser()
@@ -174,7 +177,7 @@ class GiftCommand {
         EnsureUserGuard(),
         RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    async addgifts(
+    async add(
         @SlashOption({
             name: "user",
             description: "Пользователь, которому нужно добавить подарки",
@@ -224,7 +227,7 @@ class GiftCommand {
     }
     
     @Slash({
-        name: "removegifts",
+        name: "remove",
         description: "Удалить подарки у пользователя [Модератор]"
     })
     @EnsureUser()
@@ -232,7 +235,7 @@ class GiftCommand {
         EnsureUserGuard(),
         RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    async removegifts(
+    async remove(
         @SlashOption({
             name: "user",
             description: "Пользователь, у которого нужно удалить подарки",
