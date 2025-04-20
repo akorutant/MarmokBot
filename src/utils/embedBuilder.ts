@@ -5,6 +5,7 @@ import { GiftReward } from "../types/giftTypes.js";
 import { CasinoResult } from "../types/casinoTypes.js";
 import { RARITY_COLORS } from "../constants/colors.js";
 import { pluralizeGifts } from "./giftUtils.js";
+import { GiftStats } from "../entities/GiftStats.js";
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2,
@@ -551,4 +552,56 @@ export function createCasinoResultEmbed(
   }
   
   return embed;
+}
+
+export function createGiftListEmbed(
+  user: User,
+  totalVoiceMinutes: number,
+  availableGifts: number,
+  claimedGifts: number,
+  hoursForNextGift: number,
+  remainingMinutes: number,
+  giftStats: GiftStats
+): EmbedBuilder {
+  const fields = [];
+  
+  fields.push({
+    name: "⏱️ Всего времени в голосовых каналах:",
+    value: `**${Math.floor(totalVoiceMinutes / 60)} ч ${totalVoiceMinutes % 60}**`,
+  })
+
+  fields.push({
+    name: "🎁 Доступно:",
+    value: `**${availableGifts} ${pluralizeGifts(availableGifts)}**`,
+  })
+
+  fields.push({
+    name: "🔄 Получено за голос:",
+    value: `**${claimedGifts} ${pluralizeGifts(claimedGifts)}**`,
+  })
+  
+
+  fields.push({
+    name: "⏳ До следующего",
+    value: `**${hoursForNextGift} ч ${remainingMinutes} мин**`,
+  })
+
+  fields.push({
+    name: "🎁 Всего открыто: ",
+    value: `**${giftStats.totalGiftsClaimed} ${pluralizeGifts(giftStats.totalGiftsClaimed)}**`,
+  })
+  
+
+  return createEmbed({
+    title: `Информация о ваших подарках`,
+    description: "Информаиця о ваших подарках",
+    color: EmbedColors.GAME,
+    timestamp: true,
+    thumbnail: user.displayAvatarURL(),
+    footer: {
+      text: `ℹ️ Подарки накапливаются за каждые 8 часов`,
+      iconURL: user.displayAvatarURL()
+    },
+    fields: fields
+  });
 }

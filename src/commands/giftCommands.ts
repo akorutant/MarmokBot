@@ -4,7 +4,7 @@ import { AppDataSource } from "../services/database.js";
 import { User as DBUser } from "../entities/User.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
-import { createErrorEmbed, createGiftResultEmbed, createSuccessEmbed } from "../utils/embedBuilder.js";
+import { createErrorEmbed, createGiftListEmbed, createGiftResultEmbed, createSuccessEmbed } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
 import { Currency } from "../entities/Currency.js";
 import { GiftReward } from "../types/giftTypes.js";
@@ -145,17 +145,14 @@ class GiftCommand {
             const hoursForNextGift = Math.floor(minutesForNextGift / 60);
             const remainingMinutes = minutesForNextGift % 60;
             
-            const embed = createSuccessEmbed(
-                `**🎁 Информация о ваших подарках**\n\n` +
-                `⏱️ Всего времени в голосовых каналах: **${Math.floor(totalVoiceMinutes / 60)} ч ${totalVoiceMinutes % 60} мин**\n\n` +
-                `**📊 Статистика подарков:**\n` +
-                `🎁 Доступно: **${availableGifts} ${pluralizeGifts(availableGifts)}**\n` +
-                `🔄 Получено за голос: **${claimedGifts} ${pluralizeGifts(claimedGifts)}**\n` +
-                `⏳ До следующего: **${hoursForNextGift} ч ${remainingMinutes} мин**\n` +
-                `ℹ️ Подарки накапливаются за каждые 8 часов\n\n` +
-                `**📜 Общая статистика:**\n` +
-                `🎁 Всего открыто: **${giftStats.totalGiftsClaimed} ${pluralizeGifts(giftStats.totalGiftsClaimed)}**`,
-                interaction.user
+            const embed = createGiftListEmbed(
+                interaction.user,
+                totalVoiceMinutes,
+                availableGifts,
+                claimedGifts,
+                hoursForNextGift,
+                remainingMinutes,
+                giftStats
               );
             
             await interaction.editReply({ embeds: [embed] });
