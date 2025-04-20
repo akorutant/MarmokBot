@@ -6,6 +6,7 @@ import { TextChannel, EmbedBuilder, Client } from 'discord.js';
 import logger from '../../services/logger.js';
 import { RARITY_COLORS } from '../../constants/colors.js';
 import { pluralizeGifts } from '../giftUtils.js';
+import { Config } from '../../entities/Config.js';
 
 const MINUTES_PER_GIFT = 480; 
 
@@ -174,7 +175,7 @@ export async function sendGiftNotification(
   }
 
   try {
-    const configRepo = AppDataSource.getRepository('config');
+    const configRepo = AppDataSource.getRepository(Config);
     const config = await configRepo.findOneBy({ key: 'user_command_channel' });
 
     if (!config) {

@@ -594,12 +594,11 @@ export function createGiftListEmbed(
 
   return createEmbed({
     title: `Информация о ваших подарках`,
-    description: "Информаиця о ваших подарках",
     color: EmbedColors.GAME,
     timestamp: true,
     thumbnail: user.displayAvatarURL(),
     footer: {
-      text: `ℹ️ Подарки накапливаются за каждые 8 часов`,
+      text: `Подарки накапливаются за каждые 8 часов`,
       iconURL: user.displayAvatarURL()
     },
     fields: fields
