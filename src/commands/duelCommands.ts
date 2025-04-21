@@ -34,26 +34,29 @@ export class DuelCommand {
         interaction: CommandInteraction
     ) {
         try {
+            const expireTimestamp = Math.floor(Date.now() / 1000) + 10;
+
             const btn = new ButtonBuilder()
-                .setCustomId(`duel_${interaction.user.id}_${bet}`)
+                .setCustomId(`duel_${interaction.user.id}_${bet}_${expireTimestamp}`)
                 .setLabel("Принять вызов")
                 .setStyle(ButtonStyle.Primary);
 
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(btn);
 
-            const initialEmbed = createDuelEmbed(bet, interaction.user, undefined, undefined, undefined, 10);
+
+            const initialEmbed = createDuelEmbed(bet, interaction.user, undefined, undefined, undefined, expireTimestamp);
 
             const response = await interaction.reply({
                 embeds: [initialEmbed],
                 components: [row],
             });
             
+            // По-прежнему убираем кнопку через 10 секунд
             const message = await interaction.fetchReply();
-
             const timeout = setTimeout(async () => {
                 try {
                     await message.edit({
-                        embeds: [createDuelEmbed(bet, interaction.user, undefined, undefined, undefined, 0, true)],
+                        embeds: [createDuelEmbed(bet, interaction.user, undefined, undefined, undefined, expireTimestamp, true)],
                         components: []
                     });
                 } catch (error) {
@@ -72,7 +75,7 @@ export class DuelCommand {
         }
     }
 
-    @ButtonComponent({ id: /duel_\d+_\d+/ })
+    @ButtonComponent({ id: /duel_\d+_\d+_\d+/ })
     @Guard(
         CheckMoney(),
         EnsureUserGuard()
@@ -80,7 +83,7 @@ export class DuelCommand {
     async acceptDuel(interaction: ButtonInteraction) {
         try {
             const [_, creatorId, betStr] = interaction.customId.split("_");
-            const bet = parseInt(betStr);
+            const bet = parseInt(betStr, 10);
 
             const timeout = this.duelTimeouts.get(creatorId);
             if (timeout) {
@@ -138,3 +141,4 @@ export class DuelCommand {
         }
     }
 }
+
