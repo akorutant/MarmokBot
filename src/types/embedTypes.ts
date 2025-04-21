@@ -1,6 +1,7 @@
 export interface TopUser {
     user: { discordId: string };
     value: bigint | number | string;
+    displayValue: string;
   }
   
 export interface TopEmbedOptions {
@@ -8,5 +9,4 @@ export interface TopEmbedOptions {
     description: string;
     icon?: string;
     color?: number;
-    formatValue?: (value: TopUser["value"], index: number) => string;
-  }
+}

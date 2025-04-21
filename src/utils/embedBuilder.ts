@@ -110,15 +110,11 @@ export function createTopEmbed(
 
   let topList = '';
   for (let i = 0; i < topUsers.length; i++) {
-    const { user, value } = topUsers[i];
+    const user = topUsers[i];
     const prefix = i < 3 ? medals[i] : `${i + 1}.`;
-
-    const display = options?.formatValue
-      ? options.formatValue(value, i)
-      : value;
-
+    const valueDisplay = user.displayValue ?? user.value;
     const icon = options?.icon ?? '';
-    topList += `${prefix} <@${user.discordId}> — **${display}** ${icon}\n`;
+    topList += `${prefix} <@${user.user.discordId}> — **${valueDisplay}** ${icon}\n`;
   }
 
   return createEmbed({
