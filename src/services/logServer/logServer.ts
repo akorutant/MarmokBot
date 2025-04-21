@@ -160,7 +160,7 @@ watcher
   
     app.use(expressLayouts);
   
-    app.set('views', join(__dirname, '..', 'services', 'logServer', 'views'));
+    app.set('views', join(__dirname, 'views'));
     app.set('view engine', 'ejs');
   
     app.use('/assets', express.static(join(__dirname, 'public')));
