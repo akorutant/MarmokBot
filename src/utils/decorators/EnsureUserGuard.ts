@@ -1,11 +1,6 @@
 import { GuardFunction } from "discordx";
 import { 
-  ButtonInteraction,
   ChatInputCommandInteraction,
-  MessageContextMenuCommandInteraction,
-  UserContextMenuCommandInteraction,
-  Interaction,
-  InteractionReplyOptions,
   CacheType
 } from "discord.js";
 import { ApplicationCommandOptionType, User as DiscordUser } from "discord.js";
@@ -16,49 +11,29 @@ import { Currency } from "../../entities/Currency.js";
 import { GiftStats } from "../../entities/GiftStats.js";
 import logger from "../../services/logger.js";
 
-export function EnsureUserGuard(): GuardFunction<Interaction> {
+export function EnsureUserGuard(): GuardFunction<ChatInputCommandInteraction<CacheType>, any> {
     return async (interaction, _, next) => {
       try {
         const commandUsers: DiscordUser[] = [];
         
         try {
-          // Handle different interaction types
-          if (interaction instanceof ChatInputCommandInteraction || 
-              interaction instanceof MessageContextMenuCommandInteraction || 
-              interaction instanceof UserContextMenuCommandInteraction) {
-            if (interaction.options && interaction.options.data) {
-              for (const option of interaction.options.data) {
-                try {
-                  if (option.type === ApplicationCommandOptionType.User && option.user) {
-                    commandUsers.push(option.user);
-                  }
-                  
-                  if (option.options) {
-                    for (const subOption of option.options) {
-                      if (subOption.type === ApplicationCommandOptionType.User && subOption.user) {
-                        commandUsers.push(subOption.user);
-                      }
+          if (interaction.options && interaction.options.data) {
+            for (const option of interaction.options.data) {
+              try {
+                if (option.type === ApplicationCommandOptionType.User && option.user) {
+                  commandUsers.push(option.user);
+                }
+                
+                if (option.options) {
+                  for (const subOption of option.options) {
+                    if (subOption.type === ApplicationCommandOptionType.User && subOption.user) {
+                      commandUsers.push(subOption.user);
                     }
                   }
-                } catch (optionError) {
-                  logger.error("Error processing command option:", optionError);
                 }
+              } catch (optionError) {
+                logger.error("Error processing command option:", optionError);
               }
-            }
-          } else if (interaction instanceof ButtonInteraction) {
-            // For duel button interactions
-            try {
-              if (interaction.customId.startsWith('duel_')) {
-                const [_, creatorId] = interaction.customId.split('_');
-                try {
-                  const creator = await interaction.client.users.fetch(creatorId);
-                  commandUsers.push(creator);
-                } catch (fetchError) {
-                  logger.error(`Failed to fetch user ${creatorId}:`, fetchError);
-                }
-              }
-            } catch (buttonError) {
-              logger.error("Error processing button interaction:", buttonError);
             }
           }
         } catch (interactionTypeError) {
@@ -68,17 +43,12 @@ export function EnsureUserGuard(): GuardFunction<Interaction> {
         try {
           const hasBot = commandUsers.some(user => user?.bot);
           if (hasBot) {
-            // Check if interaction can be replied to
-            if (isRepliableInteraction(interaction)) {
-              await interaction.reply({
-                content: "⚠️ Ботов нельзя передавать!",
-                ephemeral: true
-              }).catch(replyError => {
-                logger.error("Error replying to interaction:", replyError);
-              });
-            } else {
-              logger.warn("Cannot reply to this interaction type when bot user detected");
-            }
+            await interaction.reply({
+              content: "⚠️ Ботов нельзя передавать!",
+              ephemeral: true
+            }).catch(replyError => {
+              logger.error("Error replying to interaction:", replyError);
+            });
             return;
           }
         } catch (botCheckError) {
@@ -118,22 +88,9 @@ export function EnsureUserGuard(): GuardFunction<Interaction> {
         await next();
       } catch (error) {
         logger.error("EnsureUserGuard error:", error);
-        await next();  // Continue to next guard even if this one fails
+        await next(); 
       }
     };
-}
-
-// Helper function to check if an interaction can be replied to
-function isRepliableInteraction(
-  interaction: Interaction
-): interaction is ChatInputCommandInteraction<CacheType> | 
-                MessageContextMenuCommandInteraction<CacheType> |
-                UserContextMenuCommandInteraction<CacheType> |
-                ButtonInteraction<CacheType> {
-  return interaction instanceof ChatInputCommandInteraction || 
-         interaction instanceof MessageContextMenuCommandInteraction || 
-         interaction instanceof UserContextMenuCommandInteraction || 
-         interaction instanceof ButtonInteraction;
 }
 
 async function createUserIfNeeded(discordId: string): Promise<void> {
@@ -197,7 +154,7 @@ async function createUserIfNeeded(discordId: string): Promise<void> {
       
       if (!checkUser) {
         logger.error(`Не удалось создать пользователя ${discordId}`);
-        return;  // Return without throwing to continue with next user
+        return;  
       }
       
       logger.info(`[EnsureUserGuard] Успешно создан пользователь ${discordId}`);
@@ -206,6 +163,5 @@ async function createUserIfNeeded(discordId: string): Promise<void> {
     }
   } catch (error) {
     logger.error(`[EnsureUserGuard] Ошибка при создании пользователя ${discordId}:`, error);
-    // Don't throw the error to avoid breaking the guard chain
   }
 }

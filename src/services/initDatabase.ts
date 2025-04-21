@@ -22,7 +22,8 @@ export async function seedDefaultConfigs() {
                 { key: "high_mod_level", value: "345630388460191756" },
                 { key: "high_mod_level", value: "1352322947129413654" },
                 { key: "high_mod_level", value: "1352385524446527609" },
-                { key: "user_commands_channel", value: "1351302655972081787" },
+                { key: "high_mod_level", value: "1363105989527601262" },
+                { key: "user_commands_channel", value: "1206693103612858398" },
             ];
 
             await configRepository.save(defaultConfigs);
