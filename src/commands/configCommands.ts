@@ -27,6 +27,7 @@ class ConfigCommands {
         @SlashChoice({ name: "High Moderation Level", value: "high_mod_level" })
         @SlashChoice({ name: "Ignore Voice Channel For EXP", value: "ignore_voice_channel_exp" })
         @SlashChoice({ name: "Allow chat commands for users ", value: "user_commands_channel" })
+        @SlashChoice({ name: "Gallery chat for reactions", value: "gallery_chat" })
         @SlashOption({
             description: "Выберите ключ конфига",
             name: "key",
@@ -172,6 +173,7 @@ class ConfigCommands {
         @SlashChoice({ name: "Ignore Voice Channel For EXP", value: "ignore_voice_channel_exp" })
         @SlashChoice({ name: "Allow chat commands for users ", value: "user_commands_channel" })
         @SlashChoice({ name: "Custom Background For Profile", value: "custom_background" })
+        @SlashChoice({ name: "Gallery chat for reactions", value: "gallery_chat" })
         @SlashOption({
             description: "Выберите ключ для удаления",
             name: "key",
@@ -298,6 +300,9 @@ class ConfigCommands {
                     break;
                 case "custom_background":
                     displayName = "🖼️ Custom Profile Backgrounds";
+                    break;
+                case "gallery_chat":
+                    displayName = "🖼️ Gallery chat";
                     break;
             }
 
