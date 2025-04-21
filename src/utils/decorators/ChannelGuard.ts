@@ -7,17 +7,14 @@ import logger from "../../services/logger.js";
 export function ChannelGuard(configKey: string): GuardFunction<CommandInteraction> {
   return async (interaction, _client, next) => {
     try {
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply({ ephemeral: true });
-      }
-
       const configRepo = AppDataSource.getRepository(Config);
       const configs = await configRepo.find({ where: { key: configKey } });
 
       if (configs.length === 0) {
-        logger.warn(`Конфигурация для ${configKey} не найдена`);
-        await interaction.editReply({
-          content: "❌ Не удалось проверить канал. Обратитесь к администратору.",
+        logger.warn(`ChannelGuard: config '${configKey}' not found`);
+        await interaction.reply({
+          content: "❌ Не удалось проверить канал. Обратитесь к разработчикам.",
+          ephemeral: true,
         });
         return;
       }
@@ -27,39 +24,28 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
         .map(id => id.trim())
         .filter(id => id);
 
-      if (allowedChannelIds.length === 0) {
-        logger.warn(`Нет разрешенных каналов в конфигурации ${configKey}`);
-        await interaction.editReply({
-          content: "❌ Нет разрешенных каналов для этой команды",
+      if (!allowedChannelIds.length) {
+        logger.warn(`ChannelGuard: no channels configured for '${configKey}'`);
+        await interaction.reply({
+          content: "❌ Нет разрешенных каналов для этой команды.",
+          ephemeral: true,
         });
         return;
       }
 
       if (!allowedChannelIds.includes(interaction.channelId)) {
-        const channelsList = allowedChannelIds.map(id => `<#${id}>`).join(", ");
-        await interaction.editReply({
-          content: `❌ Эту команду можно использовать только в следующих каналах: ${channelsList}`,
+        const list = allowedChannelIds.map(id => `<#${id}>`).join(", ");
+        await interaction.reply({
+          content: `❌ Эту команду можно использовать только в следующих каналах: ${list}`,
+          ephemeral: true,
         });
         return;
       }
 
-      if (interaction.deferred) {
-        await interaction.deleteReply();
-      }
-
       await next();
     } catch (error) {
-      logger.error(`Ошибка в ChannelGuard для ${configKey}: %O`, error);
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "❌ Произошла ошибка при проверке канала",
-          ephemeral: true,
-        });
-      } else {
-        await interaction.editReply({
-          content: "❌ Произошла ошибка при проверке канала",
-        });
-      }
+      logger.error(`ChannelGuard error for '${configKey}':`, error);
+      await next();
     }
   };
 }
