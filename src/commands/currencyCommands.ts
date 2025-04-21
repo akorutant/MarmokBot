@@ -1,23 +1,35 @@
-import { Discord, SlashGroup, Slash, SlashOption, Guard } from "discordx";
-import { CommandInteraction, User as DiscordUser, ApplicationCommandOptionType } from "discord.js";
-import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
+import { 
+    Discord, 
+    Slash, 
+    SlashOption, 
+    Guard, 
+    SlashGroup
+} from "discordx";
+import { 
+    CommandInteraction, 
+    ApplicationCommandOptionType, 
+    User as DiscordUser,
+    TextChannel as DiscordTextChannel
+} from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { User } from "../entities/User.js";
 import { Currency } from "../entities/Currency.js";
-import { RequireRoles } from "../utils/decorators/RequireRoles.js";
-import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
-import {
-    createErrorEmbed,
-    createSuccessEmbed,
-    createCurrencyBalanceEmbed
+import { Config } from "../entities/Config.js";
+import { 
+    createCurrencyBalanceEmbed,
+    createErrorEmbed, 
+    createSuccessEmbed, 
+    createTransferNotificationEmbed 
 } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
+import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
-
+import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
+import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 
 @Discord()
-export class TransferCommand {
-    @Slash({ 
+class TransferCommand {
+    @Slash({
         description: "Перевести валюту другому пользователю",
         name: "transfer"
     })
@@ -58,14 +70,22 @@ export class TransferCommand {
 
             const userRepository = AppDataSource.getRepository(User);
             const currencyRepository = AppDataSource.getRepository(Currency);
+            const configRepository = AppDataSource.getRepository(Config);
 
             const sourceUser = await userRepository.findOneOrFail({
                 where: { discordId: interaction.user.id },
                 relations: ["currency"]
             });
 
-            if (sourceUser.currency.currencyCount < BigInt(currencyAmount)) {
-                const embed = createErrorEmbed("У вас недостаточно валюты для этого перевода!", interaction.user);
+            const commission = Math.ceil(currencyAmount * 0.07);
+            const totalAmount = currencyAmount + commission;
+            
+            if (sourceUser.currency.currencyCount < BigInt(totalAmount)) {
+                const embed = createErrorEmbed(
+                    `У вас недостаточно валюты для этого перевода! ` +
+                    `Необходимо: ${currencyAmount} + ${commission} (комиссия 7%) = ${totalAmount}`,
+                    interaction.user
+                );
                 await interaction.reply({ embeds: [embed] });
                 return;
             }
@@ -75,15 +95,15 @@ export class TransferCommand {
                 relations: ["currency"]
             });
 
-            await AppDataSource.transaction(async (transactionalEntityManager) => {
-                await transactionalEntityManager.decrement(
+            await AppDataSource.transaction(async (manager) => {
+                await manager.decrement(
                     Currency,
                     { id: sourceUser.currency.id },
                     "currencyCount",
-                    currencyAmount
+                    totalAmount
                 );
 
-                await transactionalEntityManager.increment(
+                await manager.increment(
                     Currency,
                     { id: targetUser.currency.id },
                     "currencyCount",
@@ -91,19 +111,45 @@ export class TransferCommand {
                 );
             });
 
-            const embed = createSuccessEmbed(
-                `Вы успешно перевели ${currencyAmount} валюты пользователю <@${targetDiscordUser.id}>!`, 
+            const senderEmbed = createSuccessEmbed(
+                `Вы успешно перевели ${currencyAmount} валюты пользователю <@${targetDiscordUser.id}>!
+` +
+                `Комиссия составила ${commission} (7%).
+` +
+                `Общая сумма списания: ${totalAmount}`,
                 interaction.user
             );
-            await interaction.reply({ embeds: [embed] });
+            
+            await interaction.reply({ embeds: [senderEmbed] });
+            
+            const receiverEmbed = createTransferNotificationEmbed(
+                interaction.user,
+                targetDiscordUser,
+                currencyAmount
+            );
+            
+            try {
+                const dm = await targetDiscordUser.createDM();
+                await dm.send({ embeds: [receiverEmbed] });
+                logger.info(`Уведомление о переводе отправлено в ЛС ${targetDiscordUser.id}`);
+            } catch {
+                logger.warn(`Не удалось отправить ЛС пользователю ${targetDiscordUser.id}`);
+                const commandsConfig = await configRepository.findOne({ where: { key: "user_commands_channel" } });
+                if (commandsConfig?.value) {
+                    const ch = interaction.client.channels.cache.get(commandsConfig.value) as DiscordTextChannel;
+                    if (ch) await ch.send({ content: `<@${targetDiscordUser.id}>`, embeds: [receiverEmbed] });
+                }
+            }
+
             logger.info(`Пользователь ${interaction.user.id} перевел ${currencyAmount} валюты пользователю ${targetDiscordUser.id}`);
         } catch (error) {
             const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
             await interaction.reply({ embeds: [embed] });
-            logger.error("Ошибка при переводе валюты: %O", error);
+            logger.error("Ошибка при переводе валюты:", error);
         }
     }
 }
+
 
 @Discord()
 class BalanceCommand {
@@ -285,4 +331,4 @@ class CurrencyCommands {
     }
 }
 
-export default { CurrencyCommands, BalanceCommand };
+export default { CurrencyCommands, BalanceCommand, TransferCommand};

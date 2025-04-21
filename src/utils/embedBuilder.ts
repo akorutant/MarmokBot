@@ -1,4 +1,4 @@
-import { EmbedBuilder, User, Guild, ColorResolvable, CommandInteraction } from "discord.js";
+import { EmbedBuilder, User, Guild, ColorResolvable, CommandInteraction, Message } from "discord.js";
 import { calculateNextLevelExp } from "./levelUpUtils.js";
 import { getHoursString } from "./hoursUtils.js";
 import { GiftReward } from "../types/giftTypes.js";
@@ -632,4 +632,107 @@ export function createGiftListEmbed(
     },
     fields: fields
   });
+}
+
+/**
+ * Создает эмбед для уведомления о переводе валюты
+ * @param senderUser Отправитель
+ * @param receiverUser Получатель
+ * @param amount Сумма
+ * @returns Эмбед с уведомлением о переводе
+ */
+export function createTransferNotificationEmbed(
+  senderUser: User, 
+  receiverUser: User, 
+  amount: number
+) {
+  return new EmbedBuilder()
+      .setTitle("💰 Перевод валюты")
+      .setDescription(`Вы получили **${amount}** валюты от <@${senderUser.id}>!`)
+      .setColor("#FFD700" as ColorResolvable)
+      .setFooter({
+          text: `Отправитель: ${senderUser.tag}`,
+          iconURL: senderUser.displayAvatarURL()
+      })
+      .setTimestamp();
+}
+
+/**
+* Создает эмбед для логирования удаленных сообщений
+* @param message Удаленное сообщение
+* @param partNumber Номер части (опционально)
+* @returns Эмбед с информацией об удаленном сообщении
+*/
+export function createDeletedMessageLogEmbed(
+  message: Message, 
+  partNumber?: number
+) {
+  const embed = new EmbedBuilder()
+      .setTitle(partNumber ? `Сообщение удалено (часть ${partNumber})` : "Сообщение удалено")
+      .setColor("#FF0000" as ColorResolvable)
+      .setTimestamp();
+  
+  if (!partNumber) {
+      embed.addFields(
+          { name: "Автор", value: `${message.author?.tag} (${message.author?.id})`, inline: true },
+          { name: "Канал", value: `<#${message.channelId}> (${message.channelId})`, inline: true },
+          { name: "ID сообщения", value: message.id, inline: true }
+      );
+      
+      if (message.attachments.size > 0) {
+          const attachmentsList = message.attachments.map(a => `[${a.name}](${a.url})`).join("\n");
+          embed.addFields({ name: "Вложения", value: attachmentsList });
+      }
+  }
+  
+  return embed;
+}
+
+/**
+* Создает эмбед для логирования отредактированных сообщений
+* @param oldMessage Старое сообщение
+* @param newMessage Новое сообщение
+* @param contentLabel Метка содержимого
+* @param partNumber Номер части (опционально)
+* @returns Эмбед с информацией об отредактированном сообщении
+*/
+export function createEditedMessageLogEmbed(
+  oldMessage: Message, 
+  newMessage: Message, 
+  contentLabel: string,
+  partNumber?: number
+) {
+  const embed = new EmbedBuilder()
+      .setTitle(partNumber ? `${contentLabel} (часть ${partNumber})` : "Сообщение отредактировано")
+      .setColor("#FFA500" as ColorResolvable)
+      .setTimestamp();
+  
+  if (!partNumber) {
+      embed.addFields(
+          { name: "Автор", value: `${newMessage.author?.tag} (${newMessage.author?.id})`, inline: true },
+          { name: "Канал", value: `<#${newMessage.channelId}> (${newMessage.channelId})`, inline: true },
+          { name: "ID сообщения", value: newMessage.id, inline: true },
+          { name: "Ссылка", value: `[Перейти к сообщению](${newMessage.url})`, inline: true }
+      );
+  }
+  
+  return embed;
+}
+
+/**
+* Создает дополнительный эмбед для части содержимого сообщения
+* @param title Заголовок
+* @param content Содержимое
+* @param color Цвет (опционально)
+* @returns Эмбед с частью содержимого
+*/
+export function createContentPartEmbed(
+  title: string, 
+  content: string, 
+  color: ColorResolvable = "#FFA500"
+) {
+  return new EmbedBuilder()
+      .setTitle(title)
+      .setColor(color)
+      .setDescription(content);
 }
