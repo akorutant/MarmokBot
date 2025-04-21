@@ -356,7 +356,7 @@ export function createDuelEmbed(
   let duelDescription = "";
 
   if (winUser) {
-    duelDescription = "💥 Дуэль завершена! Ниже — её итоги.";
+    duelDescription = "💥 Итоги схватки.";
   } else if (expired) {
     duelDescription = "⏰ Время на принятие дуэли истекло.";
   } else if (expireTimestamp) {
@@ -402,9 +402,9 @@ export function createDuelEmbed(
 
   return createEmbed({
     title: expired
-      ? `❌ Дуэль ${executeUser.username} отменена`
+      ? `❌ Дуэль отменена`
       : winUser
-        ? `🏁 Дуэль ${executeUser.username} завершена`
+        ? `🏁 Дуэль завершена`
         : `⚔️ ${executeUser.username} вызывает на дуэль!`,
     description: duelDescription,
     color: expired

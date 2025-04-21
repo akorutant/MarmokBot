@@ -16,6 +16,43 @@ import logger from "../services/logger.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
+class BalanceCommand {
+    @Slash({ description: "Посмотреть баланс пользователя" })
+    @EnsureUser()
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard(),
+    )
+    async balance(
+        @SlashOption({
+            description: "Выберите пользователя",
+            name: "user",
+            required: false,
+            type: ApplicationCommandOptionType.User
+        })
+        discordUser: DiscordUser | undefined,
+        interaction: CommandInteraction,
+    ) {
+        try {
+            const targetUser = discordUser || interaction.user;
+            const userRepository = AppDataSource.getRepository(User);
+
+            const user = await userRepository.findOneOrFail({
+                where: { discordId: targetUser.id },
+                relations: ["currency"]
+            });
+
+            const embed = createCurrencyBalanceEmbed(targetUser, user.currency.currencyCount, interaction.user);
+            await interaction.reply({ embeds: [embed] });
+        } catch (error) {
+            const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
+            await interaction.reply({ embeds: [embed] });
+            logger.error("Ошибка при проверке баланса: %O", error);
+        }
+    }
+}
+
+@Discord()
 @SlashGroup({ description: "Команды для изменения баланса пользователя", name: "currency" })
 @SlashGroup("currency")
 class CurrencyCommands {
@@ -152,40 +189,6 @@ class CurrencyCommands {
         }
     }
 
-    @Slash({ description: "Посмотреть баланс пользователя" })
-    @EnsureUser()
-    @Guard(
-        ChannelGuard("user_commands_channel"),
-        EnsureUserGuard(),
-    )
-    async balance(
-        @SlashOption({
-            description: "Выберите пользователя (не указывайте, чтобы проверить свой баланс)",
-            name: "user",
-            required: false,
-            type: ApplicationCommandOptionType.User
-        })
-        discordUser: DiscordUser | undefined,
-        interaction: CommandInteraction,
-    ) {
-        try {
-            const targetUser = discordUser || interaction.user;
-            const userRepository = AppDataSource.getRepository(User);
-
-            const user = await userRepository.findOneOrFail({
-                where: { discordId: targetUser.id },
-                relations: ["currency"]
-            });
-
-            const embed = createCurrencyBalanceEmbed(targetUser, user.currency.currencyCount, interaction.user);
-            await interaction.reply({ embeds: [embed] });
-        } catch (error) {
-            const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
-            await interaction.reply({ embeds: [embed] });
-            logger.error("Ошибка при проверке баланса: %O", error);
-        }
-    }
-
     @Slash({ description: "Перевести валюту другому пользователю" })
     @EnsureUser()
     @Guard(
@@ -312,4 +315,4 @@ class CurrencyCommands {
     }
 }
 
-export default CurrencyCommands;
+export default { CurrencyCommands, BalanceCommand };

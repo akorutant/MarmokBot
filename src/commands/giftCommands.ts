@@ -162,8 +162,6 @@ class GiftCommand {
             await interaction.editReply({ embeds: [errorEmbed] });
         }
     }
-
-    /* Команды модератора для управления подарками */
     
     @Slash({
         name: "add",

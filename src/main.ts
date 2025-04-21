@@ -7,6 +7,7 @@ import { setupLogServer } from "./services/logServer/logServer.js";
 import { seedDefaultConfigs } from "./services/initDatabase.js";
 import { setDiscordClient } from "./utils/decorators/CheckLevelUp.js";
 import { setDiscordClient as setDiscordClientGifts } from "./utils/decorators/CheckGiftProgress.js";
+import { setupPermissions } from "./utils/setupPermissons.js";
 
 export const bot = new Client({
   intents: [
@@ -29,7 +30,6 @@ async function run() {
     console.log("✅ Database connected!");
     await seedDefaultConfigs();
     console.log("✅ Data Source has been initialized!");
-
   } catch (error) {
     console.error("💥 Database connection error:", error);
     process.exit(1);
@@ -48,7 +48,6 @@ async function run() {
     throw Error("Could not find BOT_TOKEN in your environment");
   }
 
-
   await bot.login(process.env.BOT_TOKEN);
 }
 
@@ -57,6 +56,8 @@ bot.once("ready", async () => {
   setDiscordClient(bot);
   setDiscordClientGifts(bot);
   console.log("🤖 Bot started");
+
+  setupPermissions(bot, ["high_mod_level", "medium_mod_level"]);
 });
 
 bot.on("interactionCreate", (interaction: Interaction) => {
