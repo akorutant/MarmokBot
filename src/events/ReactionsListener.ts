@@ -26,7 +26,9 @@ export class ReactionsListener {
             if (message.channelId !== galleryConfig.value) return;
 
             const hasImage = message.attachments.some(attachment => 
-                attachment.contentType?.startsWith("image/")
+                attachment.contentType?.startsWith("image/") ||
+                attachment.contentType?.startsWith("video/")
+
             );
 
             if (hasImage) {
