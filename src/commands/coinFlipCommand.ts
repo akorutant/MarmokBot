@@ -58,18 +58,18 @@ class CoinflipCommand {
             const sides = ["eagle", "reshka"];
             const botSide = sides[Math.floor(Math.random() * sides.length)];
             const isWin = botSide === side;
-
+            const winValue = 2 * bet
             const embed = createCoinflipEmbed(
                 bet,
                 interaction.user,
                 side,
-                isWin ? Math.floor(bet - bet * 0.14) : 0,
+                isWin ? Math.floor(winValue - winValue * 0.07) : 0,
                 isWin ? 1 : 0,
                 botSide
             );
 
             if (isWin) {
-                user.currency.currencyCount += BigInt(Math.floor(bet - bet * 0.14));
+                user.currency.currencyCount += BigInt(Math.floor(winValue - winValue * 0.07));
             } else {
                 user.currency.currencyCount -= BigInt(bet);
             }
