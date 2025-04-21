@@ -63,13 +63,13 @@ class CoinflipCommand {
                 bet,
                 interaction.user,
                 side,
-                isWin ? Math.floor(bet * 1.86) : 0,
+                isWin ? Math.floor(bet - bet * 0.14) : 0,
                 isWin ? 1 : 0,
                 botSide
             );
 
             if (isWin) {
-                user.currency.currencyCount += BigInt(Math.floor(bet * 1.86));
+                user.currency.currencyCount += BigInt(Math.floor(bet - bet * 0.14));
             } else {
                 user.currency.currencyCount -= BigInt(bet);
             }
