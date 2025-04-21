@@ -9,7 +9,6 @@ import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
 import {
     createErrorEmbed,
     createSuccessEmbed,
-    createCurrencyTopEmbed,
     createCurrencyBalanceEmbed
 } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
@@ -282,50 +281,6 @@ class CurrencyCommands {
             const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
             await interaction.reply({ embeds: [embed] });
             logger.error("Ошибка при удалении валюты: %O", error);
-        }
-    }
-
-    @Slash({ description: "Показать топ юзеров по количеству валюты" })
-    @Guard(
-        ChannelGuard("user_commands_channel"),
-        EnsureUserGuard()
-    )
-    async top(
-        @SlashOption({
-            description: "Количество пользователей для отображения",
-            name: "limit",
-            required: false,
-            type: ApplicationCommandOptionType.Number
-        })
-        limit: number = 10,
-        interaction: CommandInteraction,
-    ) {
-        try {
-            if (limit <= 0 || limit > 25) {
-                limit = 10;
-            }
-
-            const currencyRepository = AppDataSource.getRepository(Currency);
-
-            const topUsers = await currencyRepository
-                .createQueryBuilder("currency")
-                .leftJoinAndSelect("currency.user", "user")
-                .orderBy("currency.currencyCount", "DESC")
-                .take(limit)
-                .getMany();
-
-            if (topUsers.length === 0) {
-                const embed = createErrorEmbed("На сервере пока нет пользователей с валютой!", interaction.user);
-                await interaction.reply({ embeds: [embed] });
-                return;
-            }
-
-            const embed = createCurrencyTopEmbed(topUsers, limit, interaction.user, interaction.guild);
-            await interaction.reply({ embeds: [embed] });
-        } catch (error) {
-            const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
-            await interaction.reply({ embeds: [embed] });
-            logger.error("Ошибка при получении топа пользователей по валюте: %O", error);
         }
     }
 }

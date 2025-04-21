@@ -6,6 +6,7 @@ import { CasinoResult } from "../types/casinoTypes.js";
 import { RARITY_COLORS } from "../constants/colors.js";
 import { pluralizeGifts } from "./giftUtils.js";
 import { GiftStats } from "../entities/GiftStats.js";
+import { TopEmbedOptions, TopUser } from "../types/embedTypes.js";
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2,
@@ -97,11 +98,13 @@ export function createSuccessEmbed(message: string, user?: User): EmbedBuilder {
   });
 }
 
-export function createCurrencyTopEmbed(
-  topUsers: Array<{ user: { discordId: string }, currencyCount: bigint }>,
+
+export function createTopEmbed(
+  topUsers: TopUser[],
   limit: number,
   requestUser: User,
-  guild?: Guild | null
+  guild?: Guild | null,
+  options?: TopEmbedOptions
 ): EmbedBuilder {
   const medals = ['🥇', '🥈', '🥉'];
 
@@ -109,15 +112,16 @@ export function createCurrencyTopEmbed(
   for (let i = 0; i < topUsers.length; i++) {
     const user = topUsers[i];
     const prefix = i < 3 ? medals[i] : `${i + 1}.`;
-    topList += `${prefix} <@${user.user.discordId}> — **${user.currencyCount}** 💰\n`;
+    const icon = options?.icon ?? '';
+    topList += `${prefix} <@${user.user.discordId}> — **${user.value}** ${icon}\n`;
   }
 
   return createEmbed({
-    title: `🏆 Топ ${limit} пользователей по валюте`,
-    description: 'Самые богатые пользователи сервера',
-    color: EmbedColors.CURRENCY,
+    title: options?.title ?? `🏆 Топ ${limit} пользователей`,
+    description: options?.description ?? 'Рейтинг активности пользователей',
+    color: options?.color ?? EmbedColors.DEFAULT,
     timestamp: true,
-    thumbnail: guild?.iconURL() || undefined,
+    thumbnail: guild?.iconURL() ?? undefined,
     footer: {
       text: `Запросил ${requestUser.username}`,
       iconURL: requestUser.displayAvatarURL()
@@ -125,7 +129,7 @@ export function createCurrencyTopEmbed(
     fields: [
       {
         name: 'Рейтинг',
-        value: topList || 'Пока никто не заработал валюту'
+        value: topList || 'Пока нет данных для отображения.'
       }
     ]
   });
