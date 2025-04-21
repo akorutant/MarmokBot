@@ -13,7 +13,7 @@
     "migrate": "ts-node ./src/migrations/migrate.ts",
     "dev:css": "tailwindcss -i ./src/styles.css -o ./services/logServer/public/css/style.css --watch",
     "build:css": "tailwindcss -i ./src/styles.css -o ./services/logServer/public/css/style.css --minify",
-    "copy-views": "copyfiles -u 1 src/services/logServer/views/**/* build/services/logServer/views"
+    "copy-views": "copyfiles -f src/services/logServer/views/**/*.* build/services/logServer/views"
   },
   "dependencies": {
     "@discordx/importer": "^1.3.1",
