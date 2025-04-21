@@ -6,8 +6,7 @@ import { AppDataSource } from "./services/database.js";
 import { setupLogServer } from "./services/logServer/logServer.js";
 import { seedDefaultConfigs } from "./services/initDatabase.js";
 import { setDiscordClient } from "./utils/decorators/CheckLevelUp.js";
-import { setDiscordClient as setDiscordClientGifts } from "./utils/decorators/CheckGiftProgress.js";
-import { setupPermissions } from "./utils/setupPermissons.js";
+import { setDiscordClient as setDiscordClientGifts } from "./utils/decorators/CheckGiftProgress.js"; 
 
 export const bot = new Client({
   intents: [
@@ -56,8 +55,6 @@ bot.once("ready", async () => {
   setDiscordClient(bot);
   setDiscordClientGifts(bot);
   console.log("🤖 Bot started");
-
-  setupPermissions(bot, ["high_mod_level", "medium_mod_level"]);
 });
 
 bot.on("interactionCreate", (interaction: Interaction) => {
