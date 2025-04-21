@@ -6,9 +6,8 @@
   "type": "module",
   "main": "build/main.js",
   "scripts": {
-    "build": "tsc && npm run copy-views && npm run copy-public",
-    "copy-views": "copyfiles -u 3 src/services/logServer/views/**/*.* build/services/logServer",
-    "copy-public": "copyfiles -u 3 src/services/logServer/public/**/*.* build/services/logServer",
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "copyfiles -u 2 src/services/logServer/views/*.ejs build/services && copyfiles -u 2 src/services/logServer/views/**/* build/services && copyfiles -u 2 src/services/logServer/public/**/* build/services",
     "dev": "nodemon --watch 'src/**/*.ts' --exec \"node --no-warnings --loader ts-node/esm src/main.ts\"",
     "start": "node build/main.js",
     "watch": "nodemon -e ts --watch src --exec npm run dev",
