@@ -85,7 +85,7 @@ export function EnsureUser() {
 
         if (!user.currency) {
           const newCurrency = currencyRepository.create({
-            currencyCount: 0n,
+            currencyCount: 1000n,
             user
           });
           await currencyRepository.save(newCurrency);

@@ -126,7 +126,7 @@ async function createUserIfNeeded(discordId: string): Promise<void> {
 
     try {
       const currency = new Currency();
-      currency.currencyCount = 0n;
+      currency.currencyCount = 1000n;
       currency.user = newUser;
       await AppDataSource.getRepository(Currency).save(currency);
     } catch (currencyError) {
