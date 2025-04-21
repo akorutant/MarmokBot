@@ -8,6 +8,7 @@ import { createDuelEmbed } from "../utils/embedBuilder.js";
 import { AppDataSource } from "../services/database.js";
 import { Currency } from "../entities/Currency.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
+import { Config } from "../entities/Config.js";
 
 @Discord()
 export class DuelCommand {
@@ -16,93 +17,114 @@ export class DuelCommand {
     @Slash({ description: "Начать дуэль", name: "duel" })
     @EnsureUser()
     @Guard(
-      ChannelGuard("user_commands_channel"),
-      CheckMoney(),
-      Cooldown({ seconds: 30 }),
-      EnsureUserGuard()
+        ChannelGuard("user_commands_channel"),
+        CheckMoney(),
+        Cooldown({ seconds: 30 }),
+        EnsureUserGuard()
     )
     async startDuel(
-      @SlashOption({
-        name: "bet",
-        description: "Сумма ставки",
-        type: ApplicationCommandOptionType.Number,
-        required: true,
-        minValue: 500,
-        maxValue: 1500
-      })
-      bet: number,
-      @SlashOption({
-        name: "opponent",
-        description: "Пользователь, которого хотите вызвать на дуэль",
-        type: ApplicationCommandOptionType.User,
-        required: false
-      })
-      opponent: User | undefined,
-      interaction: CommandInteraction
+        @SlashOption({
+            name: "bet",
+            description: "Сумма ставки",
+            type: ApplicationCommandOptionType.Number,
+            required: true,
+            minValue: 500,
+            maxValue: 1500
+        })
+        bet: number,
+        @SlashOption({
+            name: "opponent",
+            description: "Пользователь, которого хотите вызвать на дуэль",
+            type: ApplicationCommandOptionType.User,
+            required: false
+        })
+        opponent: User | undefined,
+        interaction: CommandInteraction
     ) {
-      try {
-        if (opponent?.id === interaction.user.id) {
-          await interaction.reply({
-            content: "❌ Вы не можете вызвать самого себя на дуэль.",
-            ephemeral: true
-          });
-          return;
-        }
-    
-        const expireTimestamp = Math.floor(Date.now() / 1000) + 30;
-        const customId = `duel_${interaction.user.id}_${bet}_${expireTimestamp}_${opponent?.id ?? "any"}`;
-    
-        const btn = new ButtonBuilder()
-          .setCustomId(customId)
-          .setLabel("Принять вызов")
-          .setStyle(ButtonStyle.Primary);
-    
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(btn);
-    
-        const embed = createDuelEmbed(
-          bet,
-          interaction.user,
-          opponent,
-          undefined,
-          undefined,
-          expireTimestamp
-        );
-    
-        const message = await interaction.reply({
-          embeds: [embed],
-          components: [row]
-        });
-    
-        const replyMessage = await interaction.fetchReply();
-        const timeout = setTimeout(async () => {
-            try {
-              await replyMessage.edit({
-                embeds: [createDuelEmbed(
-                  bet,
-                  interaction.user,
-                  opponent,
-                  undefined,
-                  undefined,
-                  expireTimestamp,
-                  true
-                )],
-                components: []
-              });
-            } catch (err) {
-              console.error("Error updating expired duel:", err);
+        try {
+            if (opponent?.id === interaction.user.id) {
+                await interaction.reply({
+                    content: "❌ Вы не можете вызвать самого себя на дуэль.",
+                    ephemeral: true
+                });
+                return;
             }
-            this.duelTimeouts.delete(interaction.user.id);
-          }, 30000);
-          
-    
-        this.duelTimeouts.set(interaction.user.id, timeout);
-      } catch (error) {
-        console.error("Duel command error:", error);
-        await interaction.reply({
-          content: "❌ Ошибка создания дуэли",
-          ephemeral: true
-        });
-      }
+
+            const expireTimestamp = Math.floor(Date.now() / 1000) + 30;
+            const customId = `duel_${interaction.user.id}_${bet}_${expireTimestamp}_${opponent?.id ?? "any"}`;
+
+            const btn = new ButtonBuilder()
+                .setCustomId(customId)
+                .setLabel("Принять вызов")
+                .setStyle(ButtonStyle.Primary);
+
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(btn);
+
+            const embed = createDuelEmbed(
+                bet,
+                interaction.user,
+                opponent,
+                undefined,
+                undefined,
+                expireTimestamp
+            );
+
+            const message = await interaction.reply({
+                embeds: [embed],
+                components: [row]
+            });
+
+            const configRepository = AppDataSource.getRepository(Config);
+            const configs = await configRepository.findBy(["user_commands_channel"].map(key => ({ key })));
+            const commandsChannelId = configs.find(c => c.key === "user_commands_channel")?.value;
+            const replyMessage = await interaction.fetchReply();
+
+            if (opponent) {
+                try {
+                    await opponent.send({
+                        content: `🎲 ${interaction.user.tag} вызвал тебя на дуэль с ставкой **${bet}**! Прими вызов: [ссылка](${replyMessage.url})`
+                    });
+                } catch (dmError) {
+                    console.error(`Не удалось отправить ЛС ${opponent.tag}:`, dmError);
+                    if (commandsChannelId) {
+                        const channel = await interaction.guild?.channels.fetch(commandsChannelId);
+                        if (channel?.isTextBased()) {
+                            await channel.send({
+                                content: `${opponent}, ${interaction.user} вызвал тебя на дуэль!`,
+                                allowedMentions: { users: [opponent.id] }
+                            });
+                        }
+                    }
+                }
+            }
+            const timeout = setTimeout(async () => {
+                try {
+                    await replyMessage.edit({
+                        embeds: [createDuelEmbed(
+                            bet,
+                            interaction.user,
+                            opponent,
+                            undefined,
+                            undefined,
+                            expireTimestamp,
+                            true
+                        )],
+                        components: []
+                    });
+                } catch (err) {
+                    console.error("Error updating expired duel:", err);
+                }
+                this.duelTimeouts.delete(interaction.user.id);
+            }, 30000);
+
+            this.duelTimeouts.set(interaction.user.id, timeout);
+        } catch (error) {
+            console.error("Duel command error:", error);
+            await interaction.reply({
+                content: "❌ Ошибка создания дуэли",
+                ephemeral: true
+            });
+        }
     }
     
 
