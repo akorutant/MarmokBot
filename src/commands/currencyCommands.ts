@@ -15,6 +15,97 @@ import {
 import logger from "../services/logger.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
+
+@Discord()
+export class TransferCommand {
+    @Slash({ 
+        description: "Перевести валюту другому пользователю",
+        name: "transfer"
+    })
+    @EnsureUser()
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard()
+    )
+    async transfer(
+        @SlashOption({
+            description: "Выберите пользователя, которому хотите перевести валюту",
+            name: "user",
+            required: true,
+            type: ApplicationCommandOptionType.User
+        })
+        targetDiscordUser: DiscordUser,
+        @SlashOption({
+            description: "Напишите кол-во валюты для перевода",
+            name: "amount",
+            required: true,
+            type: ApplicationCommandOptionType.Number
+        })
+        currencyAmount: number,
+        interaction: CommandInteraction,
+    ) {
+        try {
+            if (currencyAmount <= 0) {
+                const embed = createErrorEmbed("Сумма перевода должна быть положительной!", interaction.user);
+                await interaction.reply({ embeds: [embed] });
+                return;
+            }
+
+            if (targetDiscordUser.id === interaction.user.id) {
+                const embed = createErrorEmbed("Вы не можете перевести валюту самому себе!", interaction.user);
+                await interaction.reply({ embeds: [embed] });
+                return;
+            }
+
+            const userRepository = AppDataSource.getRepository(User);
+            const currencyRepository = AppDataSource.getRepository(Currency);
+
+            const sourceUser = await userRepository.findOneOrFail({
+                where: { discordId: interaction.user.id },
+                relations: ["currency"]
+            });
+
+            if (sourceUser.currency.currencyCount < BigInt(currencyAmount)) {
+                const embed = createErrorEmbed("У вас недостаточно валюты для этого перевода!", interaction.user);
+                await interaction.reply({ embeds: [embed] });
+                return;
+            }
+
+            const targetUser = await userRepository.findOneOrFail({
+                where: { discordId: targetDiscordUser.id },
+                relations: ["currency"]
+            });
+
+            await AppDataSource.transaction(async (transactionalEntityManager) => {
+                await transactionalEntityManager.decrement(
+                    Currency,
+                    { id: sourceUser.currency.id },
+                    "currencyCount",
+                    currencyAmount
+                );
+
+                await transactionalEntityManager.increment(
+                    Currency,
+                    { id: targetUser.currency.id },
+                    "currencyCount",
+                    currencyAmount
+                );
+            });
+
+            const embed = createSuccessEmbed(
+                `Вы успешно перевели ${currencyAmount} валюты пользователю <@${targetDiscordUser.id}>!`, 
+                interaction.user
+            );
+            await interaction.reply({ embeds: [embed] });
+            logger.info(`Пользователь ${interaction.user.id} перевел ${currencyAmount} валюты пользователю ${targetDiscordUser.id}`);
+        } catch (error) {
+            const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
+            await interaction.reply({ embeds: [embed] });
+            logger.error("Ошибка при переводе валюты: %O", error);
+        }
+    }
+}
+
 @Discord()
 class BalanceCommand {
     @Slash({ description: "Посмотреть баланс пользователя" })
@@ -191,87 +282,6 @@ class CurrencyCommands {
             const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
             await interaction.reply({ embeds: [embed] });
             logger.error("Ошибка при удалении валюты: %O", error);
-        }
-    }
-
-    @Slash({ description: "Перевести валюту другому пользователю" })
-    @EnsureUser()
-    @Guard(
-        ChannelGuard("user_commands_channel"),
-        EnsureUserGuard()
-    )
-    async transfer(
-        @SlashOption({
-            description: "Выберите пользователя, которому хотите перевести валюту",
-            name: "user",
-            required: true,
-            type: ApplicationCommandOptionType.User
-        })
-        targetDiscordUser: DiscordUser,
-        @SlashOption({
-            description: "Напишите кол-во валюты для перевода",
-            name: "amount",
-            required: true,
-            type: ApplicationCommandOptionType.Number
-        })
-        currencyAmount: number,
-        interaction: CommandInteraction,
-    ) {
-        try {
-            if (currencyAmount <= 0) {
-                const embed = createErrorEmbed("Сумма перевода должна быть положительной!", interaction.user);
-                await interaction.reply({ embeds: [embed] });
-                return;
-            }
-
-            if (targetDiscordUser.id === interaction.user.id) {
-                const embed = createErrorEmbed("Вы не можете перевести валюту самому себе!", interaction.user);
-                await interaction.reply({ embeds: [embed] });
-                return;
-            }
-
-            const userRepository = AppDataSource.getRepository(User);
-            const currencyRepository = AppDataSource.getRepository(Currency);
-
-            const sourceUser = await userRepository.findOneOrFail({
-                where: { discordId: interaction.user.id },
-                relations: ["currency"]
-            });
-
-            if (sourceUser.currency.currencyCount < BigInt(currencyAmount)) {
-                const embed = createErrorEmbed("У вас недостаточно валюты для этого перевода!", interaction.user);
-                await interaction.reply({ embeds: [embed] });
-                return;
-            }
-
-            const targetUser = await userRepository.findOneOrFail({
-                where: { discordId: targetDiscordUser.id },
-                relations: ["currency"]
-            });
-
-            await AppDataSource.transaction(async (transactionalEntityManager) => {
-                await transactionalEntityManager.decrement(
-                    Currency,
-                    { id: sourceUser.currency.id },
-                    "currencyCount",
-                    currencyAmount
-                );
-
-                await transactionalEntityManager.increment(
-                    Currency,
-                    { id: targetUser.currency.id },
-                    "currencyCount",
-                    currencyAmount
-                );
-            });
-
-            const embed = createSuccessEmbed(`Вы успешно перевели ${currencyAmount} валюты пользователю <@${targetDiscordUser.id}>!`, interaction.user);
-            await interaction.reply({ embeds: [embed] });
-            logger.info(`Пользователь ${interaction.user.id} перевел ${currencyAmount} валюты пользователю ${targetDiscordUser.id}`);
-        } catch (error) {
-            const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
-            await interaction.reply({ embeds: [embed] });
-            logger.error("Ошибка при переводе валюты: %O", error);
         }
     }
 
