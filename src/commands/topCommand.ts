@@ -1,8 +1,8 @@
 import { Discord, Guard, Slash, SlashChoice, SlashOption } from "discordx";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
-import { ApplicationCommandOptionType, CommandInteraction } from "discord.js";
-import { createTopEmbed, createErrorEmbed } from "../utils/embedBuilder.js";
+import { ApplicationCommandOptionType, CommandInteraction, Embed } from "discord.js";
+import { createTopEmbed, createErrorEmbed, EmbedColors } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
 import { AppDataSource } from "../services/database.js";
 import { Currency } from "../entities/Currency.js";
