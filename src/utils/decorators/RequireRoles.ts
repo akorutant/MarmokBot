@@ -17,26 +17,22 @@ export const RequireRoles: (
 ) => {
     return async (interaction, _, next) => {
         try {
-            // Проверяем роли (аналогично CheckMoney)
             const hasAccess = await userHasAnyRoleFromConfig(interaction, configKeys);
 
             if (!hasAccess) {
-                // Если команда вызвана через API/кнопку, но ролей нет
                 if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
                         content: denyMessage,
                         ephemeral: true,
                     });
                 }
-                return; // Блокируем выполнение
+                return; 
             }
 
-            // Если доступ есть - продолжаем
             await next();
         } catch (error) {
             logger.error(`RequireRolesHide Error (${interaction.commandName}):`, error);
             
-            // Обработка ошибок (как в CheckMoney)
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({
                     content: "❌ Ошибка проверки прав доступа",

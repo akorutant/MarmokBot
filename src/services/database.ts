@@ -18,7 +18,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   entities: [User, Exp, Currency, Config, CommandCooldown, GiftStats],
   synchronize: true,
-  logging: true,
+  logging: ['error'],
   charset: 'utf8mb4',
   migrations: [],
   subscribers: [],
