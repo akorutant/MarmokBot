@@ -25,6 +25,7 @@ export async function seedDefaultConfigs() {
                 { key: "high_mod_level", value: "1363105989527601262" },
                 { key: "user_commands_channel", value: "1206693103612858398" },
                 { key: "gallery_chat", value: "1206715540308107266" },
+                { key: "log_chat", value: "838735119870328852"}
             ];
 
             await configRepository.save(defaultConfigs);
