@@ -356,52 +356,56 @@ export function createDuelEmbed(
   let duelDescription = "";
 
   if (winUser) {
-    duelDescription = "Дуэль завершена!";
+    duelDescription = "💥 Дуэль завершена! Ниже — её итоги.";
   } else if (expired) {
-    duelDescription = "Время на принятие дуэли истекло";
+    duelDescription = "⏰ Время на принятие дуэли истекло.";
   } else if (expireTimestamp) {
-    duelDescription = `Вы можете принять дуэль кнопкой ниже\nОсталось времени: <t:${expireTimestamp}:R>`;
+    duelDescription = `⚔️ Вы можете принять дуэль кнопкой ниже\n🕒 Осталось времени: <t:${expireTimestamp}:R>`;
   } else {
-    duelDescription = "Вы можете принять дуэль кнопкой ниже";
+    duelDescription = "⚔️ Вы можете принять дуэль кнопкой ниже.";
   }
 
   const fields: { name: string; value: string; inline: boolean }[] = [];
 
   fields.push({
-    name: "Ваша ставка",
-    value: `${userBet}$`,
+    name: "💰 Ставка",
+    value: `**${userBet}$**`,
     inline: true
   });
 
-  if (targetUser && !winUser) {
+  if (winUser && targetUser) {
+    const loser = targetUser.id === winUser.id ? executeUser : targetUser;
+    fields.push(
+      {
+        name: "🏆 Победитель",
+        value: `<@${winUser.id}>`,
+        inline: true
+      },
+      {
+        name: "🤕 Дуэлянт",
+        value: `<@${loser.id}>`,
+        inline: true
+      },
+      {
+        name: "🎉 Выигрыш",
+        value: `**${winMoney}$**`,
+        inline: true
+      }
+    );
+  } else if (targetUser) {
     fields.push({
-      name: "Дуэлянт",
+      name: "🤺 Противник",
       value: `<@${targetUser.id}>`,
       inline: true
     });
   }
 
-  if (winUser && winMoney !== undefined) {
-    fields.push(
-      {
-        name: "Победитель",
-        value: `<@${winUser.id}>`,
-        inline: true
-      },
-      {
-        name: "Сумма выигрыша",
-        value: `${winMoney}$`,
-        inline: true
-      }
-    );
-  }
-
   return createEmbed({
     title: expired
-      ? `Дуэль ${executeUser.username} отменена`
+      ? `❌ Дуэль ${executeUser.username} отменена`
       : winUser
-        ? `Дуэль ${executeUser.username} завершена`
-        : `${executeUser.username} назначил дуэль`,
+        ? `🏁 Дуэль ${executeUser.username} завершена`
+        : `⚔️ ${executeUser.username} вызывает на дуэль!`,
     description: duelDescription,
     color: expired
       ? EmbedColors.ERROR
@@ -411,12 +415,13 @@ export function createDuelEmbed(
     timestamp: true,
     thumbnail: executeUser.displayAvatarURL(),
     footer: {
-      text: `Играет ${executeUser.username}`,
+      text: `Инициатор: ${executeUser.username}`,
       iconURL: executeUser.displayAvatarURL()
     },
     fields
   });
 }
+
 
 
 /**
