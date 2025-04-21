@@ -20,7 +20,11 @@ import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 class ModProfileCommand {
-    @Slash({ description: "Показать профиль пользователя" })
+    @Slash({ 
+        description: "Показать профиль пользователя",
+        defaultMemberPermissions: "0", 
+        dmPermission: false, 
+    })
     @EnsureUser()
     @Guard(
         EnsureUserGuard(),

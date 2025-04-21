@@ -53,7 +53,12 @@ class BalanceCommand {
 }
 
 @Discord()
-@SlashGroup({ description: "Команды для изменения баланса пользователя", name: "currency" })
+@SlashGroup({ 
+    description: "Команды для изменения баланса пользователя", 
+    name: "currency",
+    defaultMemberPermissions: "0", 
+    dmPermission: false, 
+})
 @SlashGroup("currency")
 class CurrencyCommands {
     @Slash({ description: "Установить пользователю кол-во валюты" })

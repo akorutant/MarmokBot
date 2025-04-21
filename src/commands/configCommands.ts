@@ -11,7 +11,12 @@ import { fileURLToPath } from "url";
 import axios from "axios";
 
 @Discord()
-@SlashGroup({ description: "Команды для изменения конфига", name: "config" })
+@SlashGroup({ 
+    description: "Команды для изменения конфига", 
+    name: "config",
+    defaultMemberPermissions: "0", 
+    dmPermission: false, 
+})
 @SlashGroup("config")
 class ConfigCommands {
     @Slash({ description: "Добавить значение в конфиг" })

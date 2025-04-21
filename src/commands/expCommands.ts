@@ -27,7 +27,12 @@ import logger from "../services/logger.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
-@SlashGroup({ description: "Команды для изменения EXP", name: "exp" })
+@SlashGroup({ 
+  description: "Команды для изменения EXP", 
+  name: "exp",
+  defaultMemberPermissions: "0", 
+  dmPermission: false, 
+})
 @SlashGroup("exp")
 class ExpCommands {
   @Slash({ description: "Установить кол-во EXP пользователю" })

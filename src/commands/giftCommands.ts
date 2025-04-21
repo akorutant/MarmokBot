@@ -165,7 +165,12 @@ class OpenGiftCommand {
 }
 
 @Discord()
-@SlashGroup({ description: "Команды взаимодействия с подарками [Модератор]", name: "gift" })
+@SlashGroup({ 
+    description: "Команды взаимодействия с подарками [Модератор]", 
+    name: "gift",
+    defaultMemberPermissions: "0", 
+    dmPermission: false, 
+})
 @SlashGroup("gift")
 class GiftModCommands {
     @Slash({
