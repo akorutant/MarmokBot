@@ -6,6 +6,7 @@ import { TextChannel, EmbedBuilder, Client, GuildMember } from "discord.js";
 import logger from "../../services/logger.js";
 import { calculateNextLevelExp, getMaxLevelForExp } from "../levelUpUtils.js";
 import { RARITY_COLORS } from "../../constants/colors.js";
+import { Config } from "../../entities/Config.js";
 
 let discordClient: Client | undefined = undefined;
 
@@ -132,7 +133,7 @@ async function sendLevelUpMessage(
         logger.warn(`Не удалось отправить ЛС ${user.tag}, пробуем отправить в user_command_channel: ${dmError}`);
       }
   
-      const configRepo = AppDataSource.getRepository('config');
+      const configRepo = AppDataSource.getRepository(Config);
       const config = await configRepo.findOneBy({ key: 'user_command_channel' });
       if (!config) {
         logger.error("Не найдена запись user_command_channel в таблице config");

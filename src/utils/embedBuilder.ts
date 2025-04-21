@@ -5,6 +5,7 @@ import { GiftReward } from "../types/giftTypes.js";
 import { CasinoResult } from "../types/casinoTypes.js";
 import { RARITY_COLORS } from "../constants/colors.js";
 import { pluralizeGifts } from "./giftUtils.js";
+import { GiftStats } from "../entities/GiftStats.js";
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2,
@@ -426,36 +427,22 @@ export function createGiftResultEmbed(
       .setTimestamp()
       .setThumbnail(interaction.user.displayAvatarURL({ size: 128 }));
   
-  const reward = results[0];
   let valueText = '';
-  let rewardTitle = '';
-  
-  if (results.length <= 1) {
-    if (reward.type === 'nothing') {
-      valueText = '```Вы разворачиваете подарок и находите... ничего особенного.```';
-      rewardTitle = `${reward.emoji} В этот раз не повезло`;
-  } else if (reward.type === 'currency') {
-      valueText = `\`\`\`diff\n+ ${reward.amount}$\n\`\`\``;
-      rewardTitle = `${reward.emoji} ${reward.name}`;
+  let rewardTitle = 'Награда за подарки';
+  for (let result of results){
+    if (result.type === 'nothing') {
+      valueText += `${result.emoji} Пусто\n`
+    } else {
+      valueText += `${result.emoji} ${result.name} - ${result.amount}$\n`
+    }
   }
-  
+
   embed.addFields({
       name: rewardTitle,
-      value: valueText
-  });
-  }
-  
-  embed.addFields({
-      name: '┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅',
-      value: '📊 **Финансовый отчет** 📊'
+      value: `\`\`\`${valueText}\`\`\``
   });
   
   embed.addFields(
-      {
-          name: '💰 Получено',
-          value: `\`${totalWin}$\``,
-          inline: true
-      },
       {
           name: `${isProfit ? '📈' : '📉'} Итог`,
           value: `\`${profit > 0 ? '+' : ''}${profit}$\``,
@@ -565,4 +552,55 @@ export function createCasinoResultEmbed(
   }
   
   return embed;
+}
+
+export function createGiftListEmbed(
+  user: User,
+  totalVoiceMinutes: number,
+  availableGifts: number,
+  claimedGifts: number,
+  hoursForNextGift: number,
+  remainingMinutes: number,
+  giftStats: GiftStats
+): EmbedBuilder {
+  const fields = [];
+  
+  fields.push({
+    name: "⏱️ Всего времени в голосовых каналах:",
+    value: `**${Math.floor(totalVoiceMinutes / 60)} ч ${totalVoiceMinutes % 60}**`,
+  })
+
+  fields.push({
+    name: "🎁 Доступно:",
+    value: `**${availableGifts} ${pluralizeGifts(availableGifts)}**`,
+  })
+
+  fields.push({
+    name: "🔄 Получено за голос:",
+    value: `**${claimedGifts} ${pluralizeGifts(claimedGifts)}**`,
+  })
+  
+
+  fields.push({
+    name: "⏳ До следующего",
+    value: `**${hoursForNextGift} ч ${remainingMinutes} мин**`,
+  })
+
+  fields.push({
+    name: "🎁 Всего открыто: ",
+    value: `**${giftStats.totalGiftsClaimed} ${pluralizeGifts(giftStats.totalGiftsClaimed)}**`,
+  })
+  
+
+  return createEmbed({
+    title: `Информация о ваших подарках`,
+    color: EmbedColors.GAME,
+    timestamp: true,
+    thumbnail: user.displayAvatarURL(),
+    footer: {
+      text: `Подарки накапливаются за каждые 8 часов`,
+      iconURL: user.displayAvatarURL()
+    },
+    fields: fields
+  });
 }

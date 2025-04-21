@@ -157,7 +157,6 @@ class CurrencyCommands {
     @Guard(
         ChannelGuard("user_commands_channel"),
         EnsureUserGuard(),
-        RequireRoles(["high_mod_level", "medium_mod_level"])
     )
     async balance(
         @SlashOption({

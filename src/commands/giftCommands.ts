@@ -1,10 +1,10 @@
-import { Discord, Slash, SlashOption, Guard } from "discordx";
+import { Discord, Slash, SlashOption, Guard, SlashGroup } from "discordx";
 import { CommandInteraction, ApplicationCommandOptionType } from "discord.js";
 import { AppDataSource } from "../services/database.js";
 import { User as DBUser } from "../entities/User.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
-import { createErrorEmbed, createGiftResultEmbed, createSuccessEmbed } from "../utils/embedBuilder.js";
+import { createErrorEmbed, createGiftListEmbed, createGiftResultEmbed, createSuccessEmbed } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
 import { Currency } from "../entities/Currency.js";
 import { GiftReward } from "../types/giftTypes.js";
@@ -13,12 +13,15 @@ import { GiftStats } from "../entities/GiftStats.js";
 import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
+
 @Discord()
+@SlashGroup({ description: "Команды взаимодействия с подарками", name: "gift" })
+@SlashGroup("gift")
 class GiftCommand {
     private readonly VOICE_MINUTES_PER_GIFT = 480; 
 
     @Slash({
-        name: "opengift",
+        name: "open",
         description: "Открыть накопленный подарок"
     })
     @EnsureUser()
@@ -26,7 +29,7 @@ class GiftCommand {
         ChannelGuard("user_commands_channel"),
         EnsureUserGuard()
     )
-    async opengift(
+    async open(
         @SlashOption({
             name: "amount",
             description: "Количество подарков для открытия (по умолчанию 1)",
@@ -88,9 +91,7 @@ class GiftCommand {
                 );
             }
             
-            const firstResult = results[0];
-            const oneResults = [firstResult];
-            const embed = createGiftResultEmbed(oneResults, totalWin, 0, interaction);
+            const embed = createGiftResultEmbed(results, totalWin, 0, interaction);
             
             if (giftsToOpen > 1) {
                 embed.setTitle(`🎁 Открытие ${giftsToOpen} ${pluralizeGifts(giftsToOpen)} 🎁`);
@@ -108,7 +109,7 @@ class GiftCommand {
     }
 
     @Slash({
-        name: "mygifts",
+        name: "list",
         description: "Проверить информацию о доступных подарках"
     })
     @EnsureUser()
@@ -116,7 +117,7 @@ class GiftCommand {
         ChannelGuard("user_commands_channel"),
         EnsureUserGuard()
     )
-    async mygifts(
+    async list(
         interaction: CommandInteraction
     ) {
         try {
@@ -144,17 +145,14 @@ class GiftCommand {
             const hoursForNextGift = Math.floor(minutesForNextGift / 60);
             const remainingMinutes = minutesForNextGift % 60;
             
-            const embed = createSuccessEmbed(
-                `**🎁 Информация о ваших подарках**\n\n` +
-                `⏱️ Всего времени в голосовых каналах: **${Math.floor(totalVoiceMinutes / 60)} ч ${totalVoiceMinutes % 60} мин**\n\n` +
-                `**📊 Статистика подарков:**\n` +
-                `🎁 Доступно: **${availableGifts} ${pluralizeGifts(availableGifts)}**\n` +
-                `🔄 Получено за голос: **${claimedGifts} ${pluralizeGifts(claimedGifts)}**\n` +
-                `⏳ До следующего: **${hoursForNextGift} ч ${remainingMinutes} мин**\n` +
-                `ℹ️ Подарки накапливаются за каждые 8 часов\n\n` +
-                `**📜 Общая статистика:**\n` +
-                `🎁 Всего открыто: **${giftStats.totalGiftsClaimed} ${pluralizeGifts(giftStats.totalGiftsClaimed)}**`,
-                interaction.user
+            const embed = createGiftListEmbed(
+                interaction.user,
+                totalVoiceMinutes,
+                availableGifts,
+                claimedGifts,
+                hoursForNextGift,
+                remainingMinutes,
+                giftStats
               );
             
             await interaction.editReply({ embeds: [embed] });
@@ -168,7 +166,7 @@ class GiftCommand {
     /* Команды модератора для управления подарками */
     
     @Slash({
-        name: "addgifts",
+        name: "add",
         description: "Добавить подарки пользователю [Модератор]"
     })
     @EnsureUser()
@@ -176,7 +174,7 @@ class GiftCommand {
         EnsureUserGuard(),
         RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    async addgifts(
+    async add(
         @SlashOption({
             name: "user",
             description: "Пользователь, которому нужно добавить подарки",
@@ -226,7 +224,7 @@ class GiftCommand {
     }
     
     @Slash({
-        name: "removegifts",
+        name: "remove",
         description: "Удалить подарки у пользователя [Модератор]"
     })
     @EnsureUser()
@@ -234,7 +232,7 @@ class GiftCommand {
         EnsureUserGuard(),
         RequireRoles(["high_mod_level", "medium_mod_level"])
     )
-    async removegifts(
+    async remove(
         @SlashOption({
             name: "user",
             description: "Пользователь, у которого нужно удалить подарки",
@@ -256,16 +254,7 @@ class GiftCommand {
     ) {
         try {
             await interaction.deferReply();
-            
-            const member = interaction.guild?.members.cache.get(interaction.user.id);
-            if (!member?.permissions.has("ManageGuild")) {
-                const errorEmbed = createErrorEmbed(
-                    "У вас нет прав для использования этой команды",
-                    interaction.user
-                );
-                return await interaction.editReply({ embeds: [errorEmbed] });
-            }
-            
+         
             const targetUserId = user.id;
             
             const giftStatsRepository = AppDataSource.getRepository(GiftStats);
