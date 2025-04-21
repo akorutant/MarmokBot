@@ -8,4 +8,5 @@ export interface TopEmbedOptions {
     description: string;
     icon?: string;
     color?: number;
+    formatValue?: (value: TopUser["value"], index: number) => string;
   }

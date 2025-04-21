@@ -7,6 +7,7 @@ import logger from "../services/logger.js";
 import { AppDataSource } from "../services/database.js";
 import { Currency } from "../entities/Currency.js";
 import { User } from "../entities/User.js";
+import { getHoursString } from "../utils/hoursUtils.js";
 
 @Discord()
 class TopCommand {
@@ -51,14 +52,18 @@ class TopCommand {
                 }
     
                 const embed = createTopEmbed(
-                    topUsers.map((u) => ({ user: u, value: u.voiceMinutes })),
+                    topUsers.map((u) => ({ 
+                        user: u, 
+                        value: Math.round(Number(u.voiceMinutes) / 60), 
+                        displayValue: `${Math.round(Number(u.voiceMinutes) / 60)} ${getHoursString(Math.round(Number(u.voiceMinutes) / 60))}` 
+                    })),
                     limit,
                     interaction.user,
                     interaction.guild,
                     {
                         title: `🎙️ Топ ${limit} по голосовой активности`,
                         description: "Пользователи, которые больше всех сидели в голосе",
-                        icon: "🕐",
+                        icon: "", 
                         color: EmbedColors.INFO
                     }
                 );
@@ -80,7 +85,11 @@ class TopCommand {
             }
     
             const embed = createTopEmbed(
-                topUsers.map((c) => ({ user: c.user, value: c.currencyCount })),
+                topUsers.map((c) => ({ 
+                    user: c.user, 
+                    value: c.currencyCount,
+                    displayValue: c.currencyCount.toString() 
+                })),
                 limit,
                 interaction.user,
                 interaction.guild,
@@ -99,7 +108,6 @@ class TopCommand {
             logger.error("Ошибка при получении топа пользователей: %O", error);
         }
     }
-    
 }
 
 export default TopCommand;
