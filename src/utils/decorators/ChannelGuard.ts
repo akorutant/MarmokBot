@@ -2,6 +2,7 @@ import { GuardFunction } from "discordx";
 import type { CommandInteraction } from "discord.js";
 import { AppDataSource } from "../../services/database.js";
 import { Config } from "../../entities/Config.js";
+import { MessageFlags } from "discord.js";
 import logger from "../../services/logger.js";
 
 export function ChannelGuard(configKey: string): GuardFunction<CommandInteraction> {
@@ -13,8 +14,8 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
       if (configs.length === 0) {
         logger.warn(`ChannelGuard: config '${configKey}' not found`);
         await interaction.reply({
-          content: "❌ Не удалось проверить канал. Обратитесь к разработчикам.",
-          ephemeral: true,
+          content: "❌ Не удалось проверить канал. Обратитесь к администратору.",
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -28,7 +29,7 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
         logger.warn(`ChannelGuard: no channels configured for '${configKey}'`);
         await interaction.reply({
           content: "❌ Нет разрешенных каналов для этой команды.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -37,7 +38,7 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
         const list = allowedChannelIds.map(id => `<#${id}>`).join(", ");
         await interaction.reply({
           content: `❌ Эту команду можно использовать только в следующих каналах: ${list}`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
