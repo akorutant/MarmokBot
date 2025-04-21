@@ -10,18 +10,73 @@ import { Currency } from "../entities/Currency.js";
 import { GiftReward } from "../types/giftTypes.js";
 import { openGift, pluralizeGifts } from "../utils/giftUtils.js";
 import { GiftStats } from "../entities/GiftStats.js";
-import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
-
+import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 
 @Discord()
-@SlashGroup({ description: "Команды взаимодействия с подарками", name: "gift" })
-@SlashGroup("gift")
-class GiftCommand {
-    private readonly VOICE_MINUTES_PER_GIFT = 480; 
+class MyGiftsCommand {
+    private readonly VOICE_MINUTES_PER_GIFT = 480;
 
     @Slash({
-        name: "open",
+        name: "mygifts",
+        description: "Проверить информацию о ваших доступных подарках"
+    })
+    @EnsureUser()
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        EnsureUserGuard()
+    )
+    async mygifts(
+        interaction: CommandInteraction
+    ) {
+        try {
+            await interaction.deferReply();
+            const discordUser = interaction.user;
+            
+            const userRepository = AppDataSource.getRepository(DBUser);
+            const dbUser = await userRepository.findOneOrFail({
+                where: { discordId: discordUser.id }
+            });
+            
+            const giftStatsRepository = AppDataSource.getRepository(GiftStats);
+            const giftStats = await giftStatsRepository.findOneOrFail({
+                where: { discordId: discordUser.id }
+            });
+              
+            const totalVoiceMinutes = Number(dbUser.voiceMinutes);
+            
+            const potentialGifts = Math.floor(totalVoiceMinutes / this.VOICE_MINUTES_PER_GIFT);
+            
+            const claimedGifts = giftStats.claimedGiftsFromVoice;
+            const availableGifts = giftStats.availableGifts;
+            
+            const minutesForNextGift = this.VOICE_MINUTES_PER_GIFT - (totalVoiceMinutes % this.VOICE_MINUTES_PER_GIFT);
+            const hoursForNextGift = Math.floor(minutesForNextGift / 60);
+            const remainingMinutes = minutesForNextGift % 60;
+            
+            const embed = createGiftListEmbed(
+                interaction.user,
+                totalVoiceMinutes,
+                availableGifts,
+                claimedGifts,
+                hoursForNextGift,
+                remainingMinutes,
+                giftStats
+            );
+            
+            await interaction.editReply({ embeds: [embed] });
+        } catch (error) {
+            logger.error("Ошибка в команде mygifts:", error);
+            const errorEmbed = createErrorEmbed("Произошла ошибка при проверке подарков", interaction.user);
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    }
+}
+
+@Discord()
+class OpenGiftCommand {
+    @Slash({
+        name: "opengift",
         description: "Открыть накопленный подарок"
     })
     @EnsureUser()
@@ -29,7 +84,7 @@ class GiftCommand {
         ChannelGuard("user_commands_channel"),
         EnsureUserGuard()
     )
-    async open(
+    async opengift(
         @SlashOption({
             name: "amount",
             description: "Количество подарков для открытия (по умолчанию 1)",
@@ -96,7 +151,7 @@ class GiftCommand {
             if (giftsToOpen > 1) {
                 embed.setTitle(`🎁 Открытие ${giftsToOpen} ${pluralizeGifts(giftsToOpen)} 🎁`);
                 embed.setDescription(`<@${interaction.user.id}> открывает ${giftsToOpen} ${pluralizeGifts(giftsToOpen)}!`);
-              }
+            }
             
             logger.info(`Пользователь ${discordUser.id} открыл ${giftsToOpen} подарков и получил ${totalWin}$`);
             
@@ -107,62 +162,12 @@ class GiftCommand {
             await interaction.editReply({ embeds: [errorEmbed] });
         }
     }
+}
 
-    @Slash({
-        name: "list",
-        description: "Проверить информацию о доступных подарках"
-    })
-    @EnsureUser()
-    @Guard(
-        ChannelGuard("user_commands_channel"),
-        EnsureUserGuard()
-    )
-    async list(
-        interaction: CommandInteraction
-    ) {
-        try {
-            await interaction.deferReply();
-            const discordUser = interaction.user;
-            
-            const userRepository = AppDataSource.getRepository(DBUser);
-            const dbUser = await userRepository.findOneOrFail({
-                where: { discordId: discordUser.id }
-            });
-            
-            const giftStatsRepository = AppDataSource.getRepository(GiftStats);
-            const giftStats = await giftStatsRepository.findOneOrFail({
-                where: { discordId: discordUser.id }
-            });
-              
-            const totalVoiceMinutes = Number(dbUser.voiceMinutes);
-            
-            const potentialGifts = Math.floor(totalVoiceMinutes / this.VOICE_MINUTES_PER_GIFT);
-            
-            const claimedGifts = giftStats.claimedGiftsFromVoice;
-            const availableGifts = giftStats.availableGifts;
-            
-            const minutesForNextGift = this.VOICE_MINUTES_PER_GIFT - (totalVoiceMinutes % this.VOICE_MINUTES_PER_GIFT);
-            const hoursForNextGift = Math.floor(minutesForNextGift / 60);
-            const remainingMinutes = minutesForNextGift % 60;
-            
-            const embed = createGiftListEmbed(
-                interaction.user,
-                totalVoiceMinutes,
-                availableGifts,
-                claimedGifts,
-                hoursForNextGift,
-                remainingMinutes,
-                giftStats
-              );
-            
-            await interaction.editReply({ embeds: [embed] });
-        } catch (error) {
-            logger.error("Ошибка в команде mygifts:", error);
-            const errorEmbed = createErrorEmbed("Произошла ошибка при проверке подарков", interaction.user);
-            await interaction.editReply({ embeds: [errorEmbed] });
-        }
-    }
-    
+@Discord()
+@SlashGroup({ description: "Команды взаимодействия с подарками [Модератор]", name: "gift" })
+@SlashGroup("gift")
+class GiftModCommands {
     @Slash({
         name: "add",
         description: "Добавить подарки пользователю [Модератор]"
@@ -209,7 +214,7 @@ class GiftCommand {
                 `Успешно добавлено **${amount} ${pluralizeGifts(amount)}** пользователю <@${targetUserId}>.\n` +
                 `Теперь доступно: **${giftStats.availableGifts} ${pluralizeGifts(giftStats.availableGifts)}**`,
                 interaction.user
-              );
+            );
             
             logger.info(`Модератор ${interaction.user.id} добавил ${amount} подарков пользователю ${targetUserId}`);
             
@@ -268,7 +273,7 @@ class GiftCommand {
                 `Успешно удалено **${giftsToRemove} ${pluralizeGifts(giftsToRemove)}** у <@${targetUserId}>.\n` +
                 `Теперь доступно: **${giftStats.availableGifts} ${pluralizeGifts(giftStats.availableGifts)}**`,
                 interaction.user
-              );
+            );
             
             logger.info(`Модератор ${interaction.user.id} удалил ${giftsToRemove} подарков у пользователя ${targetUserId}`);
             
@@ -281,4 +286,4 @@ class GiftCommand {
     }
 }
 
-export default GiftCommand;
+export { MyGiftsCommand, OpenGiftCommand, GiftModCommands };
