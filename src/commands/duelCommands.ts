@@ -28,7 +28,7 @@ export class DuelCommand {
             description: "Сумма ставки",
             type: ApplicationCommandOptionType.Number,
             required: true,
-            minValue: 500,
+            minValue: 250,
             maxValue: 1500
         })
         bet: number,
