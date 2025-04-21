@@ -16,8 +16,8 @@ class TopCommand {
         EnsureUserGuard()
     )
     async top(
-        @SlashChoice("Валюта", "currency")
-        @SlashChoice("Голосовой", "voice")
+        @SlashChoice({ name: "Валюта", value: "currency"})
+        @SlashChoice({ name: "Голосовой", value: "voice"})
         @SlashOption({
             description: "Тип топа",
             name: "type",
