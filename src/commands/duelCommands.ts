@@ -82,7 +82,7 @@ export class DuelCommand {
             if (opponent) {
                 try {
                     await opponent.send({
-                        content: `🎲 ${interaction.user.tag} вызвал тебя на дуэль с ставкой **${bet}**! Прими вызов: [ссылка](${replyMessage.url})`
+                        content: `🎲 ${interaction.user.tag} вызвал тебя на дуэль с ставкой **${bet}**! Прими вызов: ${replyMessage.url})`
                     });
                 } catch (dmError) {
                     console.error(`Не удалось отправить ЛС ${opponent.tag}:`, dmError);
