@@ -1,5 +1,5 @@
 import { Discord, Slash, SlashOption, Guard, ButtonComponent } from "discordx";
-import { CommandInteraction, ButtonInteraction, ButtonBuilder, ButtonStyle, ActionRowBuilder, ApplicationCommandOptionType, User } from "discord.js";
+import { CommandInteraction, ButtonInteraction, ButtonBuilder, ButtonStyle, ActionRowBuilder, ApplicationCommandOptionType, User, EmbedBuilder } from "discord.js";
 import { CheckMoney } from "../utils/decorators/CheckMoney.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { Cooldown } from "../utils/decorators/CoommandCooldown.js";
@@ -11,6 +11,8 @@ import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 export class DuelCommand {
+    private duelTimeouts: Map<string, NodeJS.Timeout> = new Map();
+
     @Slash({ description: "Начать дуэль", name: "duel" })
     @EnsureUser()
     @Guard(
@@ -39,10 +41,28 @@ export class DuelCommand {
 
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(btn);
 
-            await interaction.reply({
-                embeds: [createDuelEmbed(bet, interaction.user)],
-                components: [row]
+            const initialEmbed = createDuelEmbed(bet, interaction.user, undefined, undefined, undefined, 10);
+
+            const response = await interaction.reply({
+                embeds: [initialEmbed],
+                components: [row],
             });
+            
+            const message = await interaction.fetchReply();
+
+            const timeout = setTimeout(async () => {
+                try {
+                    await message.edit({
+                        embeds: [createDuelEmbed(bet, interaction.user, undefined, undefined, undefined, 0, true)],
+                        components: []
+                    });
+                } catch (error) {
+                    console.error("Error updating expired duel:", error);
+                }
+                this.duelTimeouts.delete(interaction.user.id);
+            }, 10000);
+
+            this.duelTimeouts.set(interaction.user.id, timeout);
         } catch (error) {
             console.error("Duel command error:", error);
             await interaction.reply({
@@ -62,6 +82,12 @@ export class DuelCommand {
             const [_, creatorId, betStr] = interaction.customId.split("_");
             const bet = parseInt(betStr);
 
+            const timeout = this.duelTimeouts.get(creatorId);
+            if (timeout) {
+                clearTimeout(timeout);
+                this.duelTimeouts.delete(creatorId);
+            }
+
             if (interaction.user.id === creatorId) {
                 await interaction.reply({
                     content: "❌ Нельзя принять свой же вызов",
@@ -71,12 +97,14 @@ export class DuelCommand {
             }
 
             const winner = Math.random() > 0.5 ? interaction.user : await interaction.client.users.fetch(creatorId);
+            const loser = winner.id === interaction.user.id ? 
+                await interaction.client.users.fetch(creatorId) : interaction.user;
             const winAmount = Math.floor((bet * 2 * 0.97) - (bet));
 
             const currencyRepo = AppDataSource.getRepository(Currency);
             const [winnerCurrency, loserCurrency] = await Promise.all([
                 currencyRepo.findOne({ where: { user: { discordId: winner.id } } }),
-                currencyRepo.findOne({ where: { user: { discordId: winner.id === interaction.user.id ? creatorId : interaction.user.id } } })
+                currencyRepo.findOne({ where: { user: { discordId: loser.id } } })
             ]);
 
             if (!winnerCurrency || !loserCurrency) {
@@ -93,7 +121,7 @@ export class DuelCommand {
                 embeds: [createDuelEmbed(
                     bet,
                     await interaction.client.users.fetch(creatorId),
-                    interaction.user,
+                    loser,  
                     winAmount,
                     winner
                 )],

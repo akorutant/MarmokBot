@@ -345,13 +345,25 @@ export function createCoinflipEmbed(
 }
 
 export function createDuelEmbed(
-  userBet: Number,
+  userBet: number,  
   executeUser: User,
   targetUser?: User,
-  winMoney?: Number,
+  winMoney?: number,  
   winUser?: User,
+  timeLeft?: number,  
+  expired?: boolean
 ): EmbedBuilder {
   let duelDescription = "Вы можете принять дуэль кнопкой ниже";
+  
+  // Add time remaining to the description
+  if (timeLeft !== undefined && timeLeft > 0) {
+    duelDescription += `\nОсталось времени: ${timeLeft} секунд`;
+  } else if (expired) {
+    duelDescription = "Время на принятие дуэли истекло";
+  } else if (winUser !== undefined) {
+    duelDescription = "Дуэль завершена!";
+  }
+  
   const fields = [];
 
   if (userBet !== undefined) {
@@ -359,7 +371,7 @@ export function createDuelEmbed(
       name: "Ваша ставка",
       value: `${userBet}$`,
       inline: true
-    })
+    });
   }
 
   if (winUser !== undefined) {
@@ -367,7 +379,7 @@ export function createDuelEmbed(
       name: "Победитель",
       value: `${winUser}`,
       inline: true
-    })
+    });
   }
 
   if (targetUser !== undefined) {
@@ -375,21 +387,21 @@ export function createDuelEmbed(
       name: "Дуэлянт",
       value: `${targetUser}`,
       inline: true
-    })
+    });
   }
 
-  if (winUser !== undefined) {
+  if (winUser !== undefined && winMoney !== undefined) {
     fields.push({
       name: "Сумма выигрыша",
       value: `${winMoney}$`,
       inline: true
-    })
+    });
   }
 
   return createEmbed({
-    title: `${executeUser.username} назначил дуэль`,
+    title: expired ? `Дуэль ${executeUser.username} отменена` : `${executeUser.username} назначил дуэль`,
     description: duelDescription,
-    color: EmbedColors.GAME,
+    color: expired ? EmbedColors.ERROR : EmbedColors.GAME,
     timestamp: true,
     thumbnail: executeUser.displayAvatarURL(),
     footer: {
