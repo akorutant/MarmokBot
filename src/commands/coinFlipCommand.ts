@@ -35,7 +35,7 @@ class CoinflipCommand {
             name: "bet",
             description: "Сумма ставки",
             minValue: 50,
-            maxValue: 500,
+            maxValue: 250,
             type: ApplicationCommandOptionType.Number,
             required: true
         })
@@ -63,13 +63,13 @@ class CoinflipCommand {
                 bet,
                 interaction.user,
                 side,
-                isWin ? Math.floor(bet * 1.93) : 0,
+                isWin ? Math.floor(bet * 1.86) : 0,
                 isWin ? 1 : 0,
                 botSide
             );
 
             if (isWin) {
-                user.currency.currencyCount += BigInt(Math.floor(bet * 1.93));
+                user.currency.currencyCount += BigInt(Math.floor(bet * 1.86));
             } else {
                 user.currency.currencyCount -= BigInt(bet);
             }

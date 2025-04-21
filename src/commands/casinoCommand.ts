@@ -14,8 +14,10 @@ import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 
 @Discord()
 class CasinoCommand {
-    private readonly MIN_BET = 1000; 
-    private readonly MAX_BET = 10000; 
+    private readonly MIN_BET = 1000;
+    private readonly MAX_BET = 10000;
+    private readonly TAX_RATE = 0.07;
+
     @Slash({ 
         name: "casino", 
         description: "Проверьте свою удачу в казино" 
@@ -75,19 +77,31 @@ class CasinoCommand {
             );
             
             const result = determineCasinoResult();
-            
             const winAmount = Math.floor(bet * result.multiplier);
-            
+            let tax = 0;
+            let netWin = winAmount;
+
             if (winAmount > 0) {
+                tax = Math.floor(winAmount * this.TAX_RATE);
+                netWin = winAmount - tax;
+                
                 await currencyRepository.update(
                     { id: dbUser.currency.id },
-                    { currencyCount: newBalance + BigInt(winAmount) }
+                    { currencyCount: newBalance + BigInt(netWin) }
                 );
             }
             
-            const embed = createCasinoResultEmbed(bet, winAmount, result, interaction);
+            const embed = createCasinoResultEmbed(
+                bet, 
+                netWin, 
+                result, 
+                interaction
+            );
             
-            logger.info(`Пользователь ${discordUser.id} сделал ставку ${bet}$ в казино и ${winAmount > 0 ? `выиграл ${winAmount}$` : 'проиграл'}`);
+            logger.info(
+                `Пользователь ${discordUser.id} сделал ставку ${bet}$ ` +
+                `в казино и ${winAmount > 0 ? `выиграл ${netWin}$ (налог ${tax}$)` : 'проиграл'}`
+            );
             
             await interaction.editReply({ embeds: [embed] });
             
