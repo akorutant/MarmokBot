@@ -3,7 +3,6 @@ import type { Interaction, Message } from "discord.js";
 import { IntentsBitField } from "discord.js";
 import { Client } from "discordx";
 import { AppDataSource } from "./services/database.js";
-import { setupLogServer } from "./services/logServer/logServer.js";
 import { seedDefaultConfigs } from "./services/initDatabase.js";
 import { setDiscordClient } from "./utils/decorators/CheckLevelUp.js";
 import { setDiscordClient as setDiscordClientGifts } from "./utils/decorators/CheckGiftProgress.js"; 
@@ -34,7 +33,6 @@ async function run() {
     process.exit(1);
   }
 
-  setupLogServer();
   try {
     console.log("📦 Импорт команд...");
     await importx(`${dirname(import.meta.url)}/{events,commands}/**/*.{ts,js}`);
