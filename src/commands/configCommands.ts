@@ -29,6 +29,8 @@ class ConfigCommands {
         @SlashChoice({ name: "Allow chat commands for users ", value: "user_commands_channel" })
         @SlashChoice({ name: "Gallery chat for reactions", value: "gallery_chat" })
         @SlashChoice({ name: "Chat ID for logs messages", value: "log_chat"})
+        @SlashChoice({ name: "Chat ID for giving roles", value: "give_role_chat" })
+        @SlashChoice({ name: "Role ID for give to user", value: "give_role_id" })
         @SlashOption({
             description: "Выберите ключ конфига",
             name: "key",
@@ -176,6 +178,8 @@ class ConfigCommands {
         @SlashChoice({ name: "Custom Background For Profile", value: "custom_background" })
         @SlashChoice({ name: "Gallery chat for reactions", value: "gallery_chat" })
         @SlashChoice({ name: "Chat ID for logs messages", value: "log_chat"})
+        @SlashChoice({ name: "Chat ID for giving roles", value: "give_role_chat" })
+        @SlashChoice({ name: "Role ID for give to user", value: "give_role_id" })
         @SlashOption({
             description: "Выберите ключ для удаления",
             name: "key",
@@ -309,6 +313,10 @@ class ConfigCommands {
                 case "log_chat":
                     displayName = "💬 Log chat";
                     break;
+                case "give_role_chat":
+                    displayName = "💬 Chat for giving roles";
+                case "give_role_id":
+                    displayName = "💬 IDs for giving roles";
             }
 
             fields.push({
