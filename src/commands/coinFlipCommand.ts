@@ -43,6 +43,8 @@ class CoinflipCommand {
         interaction: CommandInteraction
     ) {
         try {
+            await interaction.deferReply();
+
             const userRepository = AppDataSource.getRepository(User);
             const currencyRepository = AppDataSource.getRepository(Currency);
 
@@ -75,7 +77,7 @@ class CoinflipCommand {
             }
 
             await currencyRepository.save(user.currency);
-            await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
             logger.error("Ошибка в команде coinflip:", error);

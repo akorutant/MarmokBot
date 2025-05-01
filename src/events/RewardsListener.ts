@@ -23,7 +23,7 @@ export default class RewardsListener {
     discordClient = client;
     logger.info("RewardsListener initialized");
   }
-  
+
   @On({ event: "messageCreate" })
   @EnsureUser()
   @CheckLevelUp()
@@ -48,14 +48,14 @@ export default class RewardsListener {
   @CheckGiftProgress()
   async onVoiceStateUpdate([oldState, newState]: ArgsOf<"voiceStateUpdate">) {
     const userId = newState.id;
-  
+
     const joined = !oldState.channel && newState.channel;
     const left = oldState.channel && !newState.channel;
-  
+
     const userRepo = AppDataSource.getRepository(User);
     const expRepo = AppDataSource.getRepository(Exp);
     const currencyRepo = AppDataSource.getRepository(Currency);
-  
+
     if (joined) {
       const interval = setInterval(async () => {
         try {
@@ -63,27 +63,27 @@ export default class RewardsListener {
             where: { discordId: userId },
             relations: ["exp", "currency"],
           });
-  
+
           await userRepo.increment({ discordId: userId }, "voiceMinutes", 1);
-          await expRepo.increment({ id: user.exp.id }, "exp", 5);
+          await expRepo.increment({ id: user.exp.id }, "exp", 2);
           await currencyRepo.increment({ id: user.currency.id }, "currencyCount", 1);
-          
+
           const giftResult = await checkAndProcessGifts(userId);
-          
+
           if (giftResult && giftResult.newGifts > 0) {
             await sendGiftNotification(userId, giftResult.newGifts, giftResult.totalAvailable);
           }
-          
-          logger.info(`+1 минута голосового: ${userId}`);
+
+          logger.info(`+1 минута голосового: ${userId}, канал: ${oldState.channelId}`);
         } catch (err) {
           logger.error(`Voice interval error for ${userId}: ${err}`);
         }
-      }, 60 * 1000); 
-  
+      }, 60 * 1000);
+
       activeVoiceIntervals.set(userId, interval);
       logger.info(`Voice timer started for ${userId}`);
     }
-  
+
     if (left) {
       const interval = activeVoiceIntervals.get(userId);
       if (interval) {
@@ -91,10 +91,10 @@ export default class RewardsListener {
         activeVoiceIntervals.delete(userId);
         logger.info(`Voice timer cleared for ${userId}`);
       }
-  
+
       try {
         const giftResult = await checkAndProcessGifts(userId, true);
-        
+
         if (giftResult && giftResult.newGifts > 0) {
           await sendGiftNotification(userId, giftResult.newGifts, giftResult.totalAvailable);
           logger.info(`Gifts finalized after voice exit: ${userId} +${giftResult.newGifts}`);
