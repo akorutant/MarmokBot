@@ -52,6 +52,12 @@ bot.once("ready", async () => {
   await bot.initApplicationCommands();
   setDiscordClient(bot);
   setDiscordClientGifts(bot);
+
+  bot.user?.setActivity({
+    name: "мурчание Kitsune",
+    type: 2 
+  });
+
   console.log("🤖 Bot started");
 });
 
