@@ -1,0 +1,48 @@
+import { Discord, Slash, Guard } from "discordx";
+import { CommandInteraction, AttachmentBuilder } from "discord.js";
+import { Cooldown } from "../utils/decorators/CoommandCooldown.js";
+import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
+import { generateBasicSkillTreeImage, generateDemoSkills } from "../utils/drawSkillTree.js";
+import logger from "../services/logger.js";
+
+@Discord()
+export class SkillTreeCommand {
+    @Slash({
+        name: "skilltree",
+        description: "Показывает дерево навыков"
+    })
+    @Guard(
+        ChannelGuard("user_commands_channel"),
+        Cooldown({ seconds: 10 })
+    )
+    async skilltree(interaction: CommandInteraction): Promise<void> {
+        try {
+            // Сначала отправляем сообщение о загрузке
+            await interaction.deferReply();
+            
+            // Генерируем данные навыков согласно описанию
+            const skillsData = generateDemoSkills();
+            
+            // Генерируем изображение с деревом навыков
+            const imageBuffer = await generateBasicSkillTreeImage(skillsData);
+            
+            // Создаем вложение с изображением
+            const attachment = new AttachmentBuilder(imageBuffer, { name: 'skill-tree.png' });
+            
+            // Отправляем изображение пользователю
+            await interaction.editReply({
+                content: '🌳 Вот ваше дерево навыков:\nВ будущем здесь вы сможете прокачивать персонажа и открывать новые возможности.',
+                files: [attachment]
+            });
+            
+            logger.info(`Пользователь ${interaction.user.tag} запросил дерево навыков`);
+        } catch (error) {
+            // Обработка ошибок
+            logger.error('Ошибка при генерации дерева навыков:', error);
+            
+            await interaction.editReply({
+                content: '❌ Произошла ошибка при создании дерева навыков. Пожалуйста, попробуйте позже.'
+            });
+        }
+    }
+}

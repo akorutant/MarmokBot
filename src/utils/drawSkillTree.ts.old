@@ -1,0 +1,996 @@
+import { createCanvas, loadImage, registerFont } from 'canvas';
+import type { Canvas, CanvasRenderingContext2D } from 'canvas';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import logger from '../services/logger.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// -------------------- Font Registration --------------------
+/** Регистрирует шрифты Montserrat */
+function registerFonts(): void {
+  try {
+    const fontsPath = path.join(__dirname, '../../assets/fonts');
+    registerFont(path.join(fontsPath, 'Montserrat-Bold.ttf'), { family: 'Montserrat', weight: 'bold' });
+    registerFont(path.join(fontsPath, 'Montserrat-Regular.ttf'), { family: 'Montserrat', weight: 'normal' });
+  } catch (error: unknown) {
+    logger.error('Font registration error:', error);
+    throw error;
+  }
+}
+
+try { registerFonts(); } catch (error: unknown) { logger.error('Font initialization failed:', error); }
+
+// -------------------- Type Definitions --------------------
+interface RGB { r: number; g: number; b: number; }
+interface HSL { h: number; s: number; l: number; }
+interface Styles {
+  primary: string;
+  secondary: string;
+  accent: string;
+  text: string;
+  textSecondary: string;
+  panelBg: string;
+  cardBg: string;
+  borderRadius: number;
+  avatarSize: number;
+}
+
+/**
+ * Интерфейс для структуры навыка
+ */
+interface Skill {
+    id: string;
+    name: string;
+    level: number;
+    maxLevel: number;
+    icon?: string; // Опциональный путь к значку навыка
+    description?: string;
+    unlocked: boolean;
+    requiredLevel?: number; // Добавлено опциональное поле для требуемого уровня
+    position: { x: number; y: number }; // Позиция на дереве
+    connections: string[]; // ID навыков, с которыми есть связь
+  }
+
+// -------------------- Color Conversion and Analysis --------------------
+/**
+ * Преобразует RGB в HSL
+ */
+function rgb2hsl(r: number, g: number, b: number): HSL {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    
+    h /= 6;
+  }
+  
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+/**
+ * Преобразует HSL в RGB
+ */
+function hsl2rgb(h: number, s: number, l: number): RGB {
+  h /= 360;
+  s /= 100;
+  l /= 100;
+  
+  let r, g, b;
+  
+  if (s === 0) {
+    r = g = b = l; // achromatic
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255)
+  };
+}
+
+/**
+ * Конвертирует HSL в строку CSS
+ */
+function hslToString(h: number, s: number, l: number): string {
+  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
+}
+
+/**
+ * Определяет, является ли цвет слишком темным или слишком светлым
+ */
+function isColorExtreme(color: RGB): boolean {
+  const brightness = (color.r * 299 + color.g * 587 + color.b * 114) / 1000;
+  return brightness < 30 || brightness > 225;
+}
+
+/**
+ * Корректирует цвет, если он слишком экстремальный
+ */
+function normalizeColor(color: RGB): RGB {
+  const brightness = (color.r * 299 + color.g * 587 + color.b * 114) / 1000;
+  
+  if (brightness < 30) {
+    // Слишком темный цвет, делаем его светлее
+    const hsl = rgb2hsl(color.r, color.g, color.b);
+    hsl.l = Math.max(hsl.l, 20); // Минимальная яркость 20%
+    return hsl2rgb(hsl.h, hsl.s, hsl.l);
+  } else if (brightness > 225) {
+    // Слишком светлый цвет, делаем его темнее
+    const hsl = rgb2hsl(color.r, color.g, color.b);
+    hsl.l = Math.min(hsl.l, 80); // Максимальная яркость 80%
+    return hsl2rgb(hsl.h, hsl.s, hsl.l);
+  }
+  
+  return color;
+}
+
+/**
+ * Генерирует стили на основе базового цвета с улучшенной адаптацией
+ */
+function generateStylesFromColor(color: RGB): Styles {
+  // Нормализуем цвет для избежания экстремальных значений
+  const normalizedColor = normalizeColor(color);
+  const { r, g, b } = normalizedColor;
+  
+  // Преобразуем в HSL для более точной манипуляции цветами
+  const hsl = rgb2hsl(r, g, b);
+  
+  // Определяем светлоту для адаптации интерфейса
+  const isDark = hsl.l < 50;
+  
+  // Определяем основной текстовый цвет в зависимости от фона
+  const textColor = isDark ? '#FFFFFF' : '#000000';
+  const textSecondary = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)';
+  
+  // Создаем вариации основного цвета с разной насыщенностью и яркостью
+  const primary = hslToString(hsl.h, Math.min(hsl.s + 10, 100), isDark ? Math.min(hsl.l + 15, 90) : Math.max(hsl.l - 15, 10));
+  const secondary = hslToString(hsl.h, Math.min(hsl.s + 5, 100), isDark ? Math.min(hsl.l + 5, 85) : Math.max(hsl.l - 5, 15));
+  
+  // Создаем акцентный цвет, смещая оттенок
+  const accentHue = (hsl.h + 180) % 360; // Комплементарный цвет
+  const accent = hslToString(accentHue, Math.min(70, hsl.s + 20), isDark ? 65 : 45);
+  
+  // Создаем полупрозрачные фоны для панелей с повышенной прозрачностью
+  const panelBg = isDark 
+    ? `rgba(${Math.floor(r/3)}, ${Math.floor(g/3)}, ${Math.floor(b/3)}, 0.75)` 
+    : `rgba(${Math.min(r+20, 255)}, ${Math.min(g+20, 255)}, ${Math.min(b+20, 255)}, 0.75)`;
+  
+  const cardBg = isDark
+    ? `rgba(${Math.floor(r/4)}, ${Math.floor(g/4)}, ${Math.floor(b/4)}, 0.8)`  
+    : `rgba(${Math.min(r+30, 255)}, ${Math.min(g+30, 255)}, ${Math.min(b+30, 255)}, 0.75)`;
+  
+  return {
+    primary,
+    secondary,
+    accent,
+    text: textColor,
+    textSecondary,
+    panelBg,
+    cardBg,
+    borderRadius: 15,
+    avatarSize: 160,
+  };
+}
+
+/**
+ * Анализирует изображение для выделения доминантных цветов
+ */
+async function analyzeImageColors(image: any): Promise<RGB> {
+  try {
+    // Создаем Canvas из изображения для анализа
+    const canvas = createCanvas(image.width, image.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0);
+    
+    // Используем упрощенный метод вычисления среднего цвета
+    return computeAverageColor(image);
+  } catch (error) {
+    logger.error('Error analyzing image colors:', error);
+    // Возвращаем нейтральный серый цвет в случае ошибки
+    return { r: 128, g: 128, b: 128 };
+  }
+}
+
+/**
+ * Вычисляет средний цвет изображения с помощью уменьшенного образца
+ */
+function computeAverageColor(image: any, sampleSize = 50): RGB {
+  const offCanvas = createCanvas(sampleSize, sampleSize);
+  const offCtx = offCanvas.getContext('2d');
+  offCtx.drawImage(image, 0, 0, sampleSize, sampleSize);
+  const data = offCtx.getImageData(0, 0, sampleSize, sampleSize).data;
+  let r = 0, g = 0, b = 0;
+  const count = data.length / 4;
+  for (let i = 0; i < data.length; i += 4) {
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+  }
+  return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) };
+}
+
+// -------------------- Polyfill for roundRect --------------------
+const ctxPrototype = Object.getPrototypeOf(createCanvas(1,1).getContext('2d')) as any;
+if (!ctxPrototype.roundRect) {
+  ctxPrototype.roundRect = function(x: number, y: number, w: number, h: number, r: number) {
+    if (r > w/2) r = w/2; if (r > h/2) r = h/2;
+    this.beginPath(); this.moveTo(x+r,y);
+    this.arcTo(x+w,y,x+w,y+h,r);
+    this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r);
+    this.arcTo(x,y,x+w,y,r);
+    this.closePath(); return this;
+  };
+}
+
+function createErrorCanvas(): Buffer {
+  const canvas = createCanvas(800, 400);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1E1E1E';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = 'bold 32px Montserrat';
+  ctx.fillStyle = '#FF6B00';
+  ctx.textAlign = 'center';
+  ctx.fillText('Ошибка при создании изображения дерева навыков', canvas.width/2, canvas.height/2);
+  return canvas.toBuffer();
+}
+
+/**
+ * Отрисовывает фон с адаптивным затемнением на основе цветов изображения
+ */
+async function drawBackground(
+  ctx: CanvasRenderingContext2D,
+  canvas: Canvas,
+  bgImage: any,
+  styles: Styles
+): Promise<void> {
+  // Масштабирование и отрисовка фонового изображения для заполнения всего холста
+  const scale = Math.max(canvas.width / bgImage.width, canvas.height / bgImage.height);
+  const scaledWidth = bgImage.width * scale;
+  const scaledHeight = bgImage.height * scale;
+  const x = (canvas.width - scaledWidth) / 2;
+  const y = (canvas.height - scaledHeight) / 2;
+  
+  // Отрисовываем исходное изображение
+  ctx.drawImage(bgImage, x, y, scaledWidth, scaledHeight);
+  
+  // Создаем градиент для затемнения
+  const overlayGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  overlayGradient.addColorStop(0, `rgba(0, 0, 0, 0.7)`);
+  overlayGradient.addColorStop(0.4, `rgba(0, 0, 0, 0.6)`);
+  overlayGradient.addColorStop(1, `rgba(0, 0, 0, 0.4)`);
+  
+  // Применяем градиентное затемнение
+  ctx.fillStyle = overlayGradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Добавляем виньетку по краям для лучшего выделения контента в центре
+  const vignette = ctx.createRadialGradient(
+    canvas.width / 2, canvas.height / 2, canvas.height * 0.3,
+    canvas.width / 2, canvas.height / 2, canvas.width * 0.7
+  );
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+  
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+/**
+ * Рисует панель с закругленными углами с улучшенной визуальной привлекательностью
+ */
+function drawPanel(
+  ctx: CanvasRenderingContext2D, 
+  x: number, 
+  y: number, 
+  width: number, 
+  height: number, 
+  radius: number, 
+  styles: Styles
+): void {
+  // Добавляем тень для эффекта глубины
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 3;
+  
+  // Фон панели
+  ctx.fillStyle = styles.panelBg;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.fill();
+  ctx.restore();
+  
+  // Обводка панели с градиентом
+  const strokeGradient = ctx.createLinearGradient(x, y, x + width, y + height);
+  strokeGradient.addColorStop(0, styles.primary);
+  strokeGradient.addColorStop(1, styles.secondary);
+  
+  ctx.strokeStyle = strokeGradient;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.stroke();
+  
+  // Добавляем световой эффект по верхнему краю для объемности
+  const glowGradient = ctx.createLinearGradient(x, y, x, y + height * 0.1);
+  glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+  glowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.fillStyle = glowGradient;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height * 0.1, radius);
+  ctx.fill();
+}
+
+/**
+ * Отрисовывает дерево навыков пользователя
+ */
+function drawSkillTree(
+    ctx: CanvasRenderingContext2D,
+    skills: Skill[],
+    styles: Styles,
+    canvasWidth: number,
+    canvasHeight: number
+  ): void {
+    // Увеличиваем размер панели для лучшего размещения
+    const treePanel = {
+      x: 60,
+      y: 90, // Увеличен отступ сверху для заголовка
+      width: canvasWidth - 120,
+      height: canvasHeight - 160,
+      radius: styles.borderRadius
+    };
+    
+    // Рисуем панель для дерева навыков
+    drawPanel(ctx, treePanel.x, treePanel.y, treePanel.width, treePanel.height, treePanel.radius, styles);
+    
+    // Добавляем области для визуального разделения веток
+    drawBranchAreas(ctx, treePanel, styles, skills);
+    
+    // Рисуем заголовок панели с тенью для лучшей читаемости
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    
+    ctx.font = 'bold 32px Montserrat';
+    ctx.fillStyle = styles.primary;
+    ctx.textAlign = 'center';
+    ctx.fillText('Дерево навыков', treePanel.x + treePanel.width / 2, treePanel.y + 40);
+    ctx.restore();
+    
+    // Рисуем соединения между навыками (линии)
+    drawSkillConnections(ctx, skills, styles, treePanel);
+    
+    // Рисуем каждый навык
+    skills.forEach(skill => {
+      drawSkillNode(ctx, skill, styles, treePanel);
+    });
+  }
+  
+  /**
+   * Отрисовывает визуальные области для разных веток навыков
+   */
+  function drawBranchAreas(
+    ctx: CanvasRenderingContext2D,
+    panel: { x: number; y: number; width: number; height: number },
+    styles: Styles,
+    skills: Skill[]
+  ): void {
+    // Анализируем навыки чтобы определить границы каждой ветки
+    const dailySkills = skills.filter(s => ['daily_rewards', 'daily_cooldown', 'cases_multi', 'cases_cooldown'].includes(s.id));
+    const expAndTreasureSkills = skills.filter(s => ['exp_messages', 'exp_voice', 'treasure_hint', 'treasure_value', 'treasure_chance'].includes(s.id));
+    const resetSkills = skills.filter(s => ['reset_level', 'reset_skills'].includes(s.id));
+    
+    // Находим границы для каждой группы
+    function getBranchBounds(skillGroup: Skill[]) {
+      const positions = skillGroup.map(s => ({ x: panel.x + s.position.x, y: panel.y + s.position.y }));
+      const minX = Math.min(...positions.map(p => p.x)) - 80;
+      const minY = Math.min(...positions.map(p => p.y)) - 60;
+      const maxX = Math.max(...positions.map(p => p.x)) + 80;
+      const maxY = Math.max(...positions.map(p => p.y)) + 80;
+      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    }
+    
+    const branches = [
+      {
+        name: 'Ежедневные награды и кейсы',
+        color: 'rgba(65, 105, 225, 0.1)', // Синий
+        ...getBranchBounds(dailySkills),
+        radius: 15
+      },
+      {
+        name: 'Опыт и кладоискатель',
+        color: 'rgba(60, 179, 113, 0.1)', // Зеленый
+        ...getBranchBounds(expAndTreasureSkills),
+        radius: 15
+      },
+      {
+        name: 'Сброс и восстановление',
+        color: 'rgba(178, 34, 34, 0.1)', // Красный
+        ...getBranchBounds(resetSkills),
+        radius: 15
+      }
+    ];
+    
+    ctx.save();
+    
+    // Рисуем каждую область
+    branches.forEach(branch => {
+      // Фон для области
+      ctx.fillStyle = branch.color;
+      ctx.beginPath();
+      ctx.roundRect(branch.x, branch.y, branch.width, branch.height, branch.radius);
+      ctx.fill();
+      
+      // Тонкая обводка
+      ctx.strokeStyle = branch.color.replace('0.1', '0.3');
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // Название ветки (маленьким шрифтом в углу зоны)
+      ctx.font = '14px Montserrat';
+      ctx.fillStyle = branch.color.replace('0.1', '0.7');
+      ctx.textAlign = 'left';
+      ctx.fillText(branch.name, branch.x + 15, branch.y + 25);
+    });
+    
+    ctx.restore();
+  }
+  
+  /**
+   * Отрисовывает метки веток навыков
+   */
+  function drawBranchLabels(
+    ctx: CanvasRenderingContext2D,
+    panel: { x: number; y: number; width: number; height: number },
+    styles: Styles
+  ): void {
+    const branchInfo = [
+      {
+        label: "Доступно сразу",
+        x: panel.x + 120,
+        y: panel.y + 85
+      },
+      {
+        label: "Доступно с 7 уровня",
+        x: panel.x + 150,
+        y: panel.y + 245
+      },
+      {
+        label: "Доступно с 10 уровня",
+        x: panel.x + 750,
+        y: panel.y + 245
+      },
+      {
+        label: "Доступно с 20 уровня",
+        x: panel.x + 300,
+        y: panel.y + 415
+      }
+    ];
+    
+    ctx.save();
+    ctx.font = 'bold 14px Montserrat';
+    ctx.textAlign = 'left';
+    
+    branchInfo.forEach(info => {
+      // Создаем фон для текста
+      const textWidth = ctx.measureText(info.label).width;
+      const bgHeight = 20;
+      const padding = 10;
+      
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.beginPath();
+      ctx.roundRect(info.x - padding/2, info.y - 14, textWidth + padding, bgHeight, 5);
+      ctx.fill();
+      
+      // Рисуем текст
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillText(info.label, info.x, info.y);
+    });
+    
+    ctx.restore();
+  }
+
+/**
+ * Рисует соединительные линии между навыками
+ */
+function drawSkillConnections(
+  ctx: CanvasRenderingContext2D,
+  skills: Skill[],
+  styles: Styles,
+  panel: { x: number; y: number; width: number; height: number }
+): void {
+  ctx.save();
+  
+  // Для каждого навыка рисуем его соединения
+  skills.forEach(skill => {
+    const startX = panel.x + skill.position.x;
+    const startY = panel.y + skill.position.y;
+    
+    // Перебираем все соединения навыка
+    skill.connections.forEach(connectionId => {
+      const connectedSkill = skills.find(s => s.id === connectionId);
+      if (connectedSkill) {
+        const endX = panel.x + connectedSkill.position.x;
+        const endY = panel.y + connectedSkill.position.y;
+        
+        // Определяем стиль линии в зависимости от разблокировки навыков
+        if (skill.unlocked) {
+          if (connectedSkill.unlocked) {
+            // Оба навыка разблокированы - рисуем красивый градиент
+            const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+            gradient.addColorStop(0, styles.primary);
+            gradient.addColorStop(1, styles.secondary);
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+          } else {
+            // Соединение с недоступным навыком - полупрозрачная линия
+            ctx.strokeStyle = 'rgba(180, 180, 180, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 3]); // Пунктирная линия
+          }
+        } else {
+          // Заблокированное соединение - серая пунктирная линия
+          ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 4]);
+        }
+        
+        // Добавляем красивое свечение для разблокированных соединений
+        if (skill.unlocked && connectedSkill.unlocked) {
+          ctx.shadowColor = styles.primary;
+          ctx.shadowBlur = 5;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+        
+        // Рисуем линию соединения
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        ctx.setLineDash([]); // Сбрасываем пунктирную линию
+      }
+    });
+  });
+  
+  ctx.restore();
+}
+
+/**
+ * Рисует узел навыка с улучшенным размещением текста
+ */
+function drawSkillNode(
+    ctx: CanvasRenderingContext2D,
+    skill: Skill,
+    styles: Styles,
+    panel: { x: number; y: number; width: number; height: number }
+  ): void {
+    const nodeRadius = 30;
+    const x = panel.x + skill.position.x;
+    const y = panel.y + skill.position.y;
+    
+    ctx.save();
+    
+    // Проверяем, есть ли у навыка требование по уровню
+    const hasLevelRequirement = 'requiredLevel' in skill && skill.requiredLevel! > 0;
+    
+    // Эффект свечения для разблокированных навыков
+    if (skill.unlocked) {
+      // Красивый эффект свечения для разблокированных навыков
+      const glowRadius = nodeRadius + 8;
+      const glowGradient = ctx.createRadialGradient(
+        x, y, nodeRadius - 5,
+        x, y, glowRadius
+      );
+      glowGradient.addColorStop(0, `${styles.primary}60`); // 40% прозрачности
+      glowGradient.addColorStop(1, `${styles.primary}00`); // 0% прозрачности
+      
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Определяем стиль фона в зависимости от статуса навыка
+    let bgGradient;
+    if (skill.unlocked) {
+      // Градиент для разблокированного навыка
+      bgGradient = ctx.createRadialGradient(
+        x - nodeRadius/3, y - nodeRadius/3, 0,
+        x, y, nodeRadius
+      );
+      bgGradient.addColorStop(0, styles.cardBg);
+      bgGradient.addColorStop(1, styles.panelBg);
+    } else {
+      // Более тусклый градиент для заблокированного навыка
+      bgGradient = ctx.createRadialGradient(
+        x, y, 0,
+        x, y, nodeRadius
+      );
+      bgGradient.addColorStop(0, 'rgba(80, 80, 80, 0.5)');
+      bgGradient.addColorStop(1, 'rgba(50, 50, 50, 0.5)');
+    }
+    
+    // Рисуем фон узла
+    ctx.fillStyle = bgGradient;
+    ctx.beginPath();
+    ctx.arc(x, y, nodeRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Рисуем обводку
+    ctx.strokeStyle = skill.unlocked ? styles.primary : 'rgba(100, 100, 100, 0.6)';
+    ctx.lineWidth = skill.unlocked ? 3 : 1;
+    ctx.beginPath();
+    ctx.arc(x, y, nodeRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Рисуем первые 2 буквы названия навыка
+    ctx.font = 'bold 18px Montserrat';
+    ctx.fillStyle = skill.unlocked ? styles.accent : 'rgba(150, 150, 150, 0.7)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(skill.name.substring(0, 2), x, y - 8);
+    
+    // Рисуем уровень навыка
+    ctx.fillStyle = skill.unlocked ? styles.text : 'rgba(150, 150, 150, 0.7)';
+    ctx.font = `bold ${skill.unlocked ? 16 : 14}px Montserrat`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${skill.level}/${skill.maxLevel}`, x, y + 10);
+    
+    // Используем меньший шрифт для названия, чтобы избежать наложения
+    const nameLines = getTextLines(skill.name, 120); // Максимальная ширина названия в пикселях
+    
+    // Рисуем название навыка снизу узла (возможно в несколько строк)
+    ctx.font = skill.unlocked ? 'bold 14px Montserrat' : '12px Montserrat'; // Уменьшен размер шрифта
+    ctx.fillStyle = skill.unlocked ? styles.text : 'rgba(150, 150, 150, 0.7)';
+    ctx.textAlign = 'center';
+    
+    // Если название короткое - отрисовываем в одну строку
+    if (nameLines.length === 1) {
+      ctx.fillText(skill.name, x, y + nodeRadius + 18);
+    } else {
+      // Если длинное - разбиваем на две строки
+      nameLines.forEach((line, index) => {
+        ctx.fillText(line, x, y + nodeRadius + 12 + (index * 16));
+      });
+    }
+    
+    // Если есть требование по уровню, отображаем его ниже названия
+    if (hasLevelRequirement) {
+      const yOffset = nameLines.length > 1 ? 34 + ((nameLines.length - 1) * 16) : 34;
+      ctx.font = '12px Montserrat';
+      ctx.fillStyle = 'rgba(255, 200, 50, 0.9)';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Доступен с ${skill.requiredLevel} ур.`, x, y + nodeRadius + yOffset);
+      
+      // Добавляем значок замка для навыков с уровневым требованием
+      if (!skill.unlocked) {
+        ctx.fillStyle = 'rgba(255, 200, 50, 0.7)';
+        ctx.beginPath();
+        // Отрисовка простого значка замка
+        const lockSize = 10;
+        const lockX = x + nodeRadius - lockSize;
+        const lockY = y - nodeRadius + lockSize;
+        
+        // Тело замка
+        ctx.fillRect(lockX - lockSize/2, lockY, lockSize, lockSize);
+        
+        // Дужка замка
+        ctx.beginPath();
+        ctx.arc(lockX, lockY - lockSize/4, lockSize/2, Math.PI, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+    
+    // Если навык имеет максимальный уровень, добавляем эффект звезды
+    if (skill.level === skill.maxLevel && skill.unlocked) {
+      drawMaxLevelEffect(ctx, x, y - nodeRadius - 5, styles);
+    }
+    
+    ctx.restore();
+  }
+
+/**
+ * Функция для разбиения текста на несколько строк, если он слишком длинный
+ */
+function getTextLines(text: string, maxWidth: number): string[] {
+    // Если текст короткий, возвращаем его как есть
+    if (text.length <= 12) {
+      return [text];
+    }
+    
+    // Пытаемся найти удобное место для разделения (пробел)
+    const middleIndex = Math.floor(text.length / 2);
+    let splitIndex = text.lastIndexOf(' ', middleIndex);
+    
+    // Если пробел не найден в первой половине, ищем после середины
+    if (splitIndex === -1 || splitIndex < 4) {
+      splitIndex = text.indexOf(' ', middleIndex);
+    }
+    
+    // Если пробел вообще не найден, делим механически
+    if (splitIndex === -1) {
+      splitIndex = middleIndex;
+    }
+    
+    return [
+      text.substring(0, splitIndex),
+      text.substring(splitIndex + 1)
+    ];
+  }
+
+/**
+ * Рисует эффект "максимального уровня" над навыком (корона или звезда)
+ */
+function drawMaxLevelEffect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  styles: Styles
+): void {
+  const size = 12; // Размер эффекта
+  
+  ctx.save();
+  
+  // Добавляем свечение
+  ctx.shadowColor = styles.accent;
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  
+  // Рисуем звезду
+  ctx.fillStyle = styles.accent;
+  ctx.beginPath();
+  
+  // Рисуем 5-конечную звезду
+  for(let i = 0; i < 5; i++) {
+    const angle = (Math.PI * 2 * i / 5) - Math.PI / 2;
+    const outerX = x + Math.cos(angle) * size;
+    const outerY = y + Math.sin(angle) * size;
+    
+    if(i === 0) {
+      ctx.moveTo(outerX, outerY);
+    } else {
+      ctx.lineTo(outerX, outerY);
+    }
+    
+    // Добавляем внутренние точки звезды
+    const innerAngle = angle + Math.PI / 5;
+    const innerX = x + Math.cos(innerAngle) * (size / 2.5);
+    const innerY = y + Math.sin(innerAngle) * (size / 2.5);
+    ctx.lineTo(innerX, innerY);
+  }
+  
+  ctx.closePath();
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+/**
+ * Функция для генерации демонстрационного набора навыков
+ * В реальной системе навыки будут приходить из базы данных или другого источника
+ */
+/**
+ * Функция для генерации набора навыков согласно описанию
+ */
+/**
+ * Функция для генерации набора навыков с исправленными позициями
+ */
+export function generateDemoSkills(): Skill[] {
+    return [
+      // Ветка ежедневных наград
+      {
+        id: 'daily_rewards',
+        name: 'Ежедневные награды',
+        level: 0,
+        maxLevel: 4,
+        description: 'Увеличение ежедневных наград на 50$ за уровень',
+        unlocked: true,
+        position: { x: 200, y: 150 }, // Сдвинуто левее
+        connections: ['daily_cooldown']
+      },
+      {
+        id: 'daily_cooldown',
+        name: 'Сокращение таймера',
+        level: 0,
+        maxLevel: 4,
+        description: 'Сокращение времени получения ежедневок на 40 мин за уровень',
+        unlocked: true,
+        position: { x: 400, y: 150 }, // Увеличен отступ
+        connections: ['daily_rewards', 'cases_multi']
+      },
+      
+      // Ветка кейсов
+      {
+        id: 'cases_multi',
+        name: 'Мульти-подарок',
+        level: 0,
+        maxLevel: 4,
+        description: 'Шанс на мульти-получение подарка (25% за уровень)',
+        unlocked: true,
+        position: { x: 600, y: 150 }, // Увеличен отступ
+        connections: ['daily_cooldown', 'cases_cooldown']
+      },
+      {
+        id: 'cases_cooldown',
+        name: 'Быстрые подарки',
+        level: 0,
+        maxLevel: 4,
+        description: 'Сокращение времени для получения подарка на 30 мин за уровень',
+        unlocked: true,
+        position: { x: 800, y: 150 }, // Увеличен отступ
+        connections: ['cases_multi', 'exp_messages']
+      },
+      
+      // Ветка увеличения получения опыта
+      {
+        id: 'exp_messages',
+        name: 'XP за сообщения',
+        level: 0,
+        maxLevel: 1,
+        description: 'Увеличение опыта за сообщения (1хп → 2хп)',
+        unlocked: false, // Заблокирован до 10 уровня
+        requiredLevel: 10,
+        position: { x: 800, y: 300 }, // Сдвинуто вниз
+        connections: ['cases_cooldown', 'exp_voice']
+      },
+      {
+        id: 'exp_voice',
+        name: 'XP за голос',
+        level: 0,
+        maxLevel: 1,
+        description: 'Увеличение опыта за войс (5хп → 6хп)',
+        unlocked: false, // Заблокирован до 10 уровня
+        requiredLevel: 10,
+        position: { x: 600, y: 300 }, // Сохраняем позицию
+        connections: ['exp_messages', 'treasure_hint']
+      },
+      
+      // Ветка кладоискателя
+      {
+        id: 'treasure_hint',
+        name: 'Доп. подсказка',
+        level: 0,
+        maxLevel: 1,
+        description: 'Дополнительная подсказка для поиска сокровищ',
+        unlocked: false, // Заблокирован до 7 уровня
+        requiredLevel: 7,
+        position: { x: 400, y: 300 }, // Увеличен отступ
+        connections: ['exp_voice', 'treasure_value']
+      },
+      {
+        id: 'treasure_value',
+        name: 'Богатые сокровища',
+        level: 0,
+        maxLevel: 1,
+        description: 'Увеличение всех наград от сокровищ на 500$',
+        unlocked: false, // Заблокирован до 7 уровня
+        requiredLevel: 7,
+        position: { x: 200, y: 300 }, // Увеличен отступ
+        connections: ['treasure_hint', 'treasure_chance']
+      },
+      {
+        id: 'treasure_chance',
+        name: 'Дополнительная карта',
+        level: 0,
+        maxLevel: 4,
+        description: 'Шанс на получение доп. карты сокровищ (2.5% за уровень)',
+        unlocked: false, // Заблокирован до 7 уровня
+        requiredLevel: 7,
+        position: { x: 100, y: 220 }, // Скорректирована позиция
+        connections: ['treasure_value', 'reset_level']
+      },
+      
+      // Ветка сброса
+      {
+        id: 'reset_level',
+        name: 'Сброс уровня',
+        level: 0,
+        maxLevel: 1,
+        description: 'Сброс уровня и всех очков навыков',
+        unlocked: false, // Заблокирован до 20 уровня
+        requiredLevel: 20,
+        position: { x: 200, y: 450 }, // Сохраняем позицию
+        connections: ['treasure_chance', 'reset_skills']
+      },
+      {
+        id: 'reset_skills',
+        name: 'Сброс навыков',
+        level: 0,
+        maxLevel: 1,
+        description: 'Сброс очков навыков (раз в неделю, стоимость 15000$)',
+        unlocked: false, // Заблокирован до 20 уровня
+        requiredLevel: 20,
+        position: { x: 400, y: 450 }, // Сохраняем позицию
+        connections: ['reset_level']
+      }
+    ];
+  }
+  
+  /**
+   * Базовая версия функции для генерации изображения дерева навыков
+   * без привязки к конкретному пользователю
+   */
+  export async function generateBasicSkillTreeImage(
+    skills: Skill[] = generateDemoSkills(),
+    backgroundImagePath?: string
+  ): Promise<Buffer> {
+    try {
+      // Для дерева навыков нужен более широкий холст
+      const canvas = createCanvas(1200, 800);
+      const ctx = canvas.getContext('2d');
+      
+      // Используем указанное изображение или стандартное
+      const bgPath = backgroundImagePath || path.join(__dirname, '../../assets/images/background.png');
+      const bgImage = await loadImage(bgPath);
+      
+      // Анализируем цвета изображения
+      const avgColor = await analyzeImageColors(bgImage);
+      const styles = generateStylesFromColor(avgColor);
+      
+      // Отрисовываем фон с адаптивным затемнением
+      await drawBackground(ctx, canvas, bgImage, styles);
+      
+      // Добавляем заголовок для дерева навыков в верхней части изображения
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+      
+      ctx.font = 'bold 48px Montserrat';
+      ctx.fillStyle = styles.text;
+      ctx.textAlign = 'center';
+      ctx.fillText('Дерево навыков', canvas.width / 2, 60);
+      ctx.restore();
+      
+      // Отрисовываем дерево навыков
+      drawSkillTree(ctx, skills, styles, canvas.width, canvas.height);
+      
+      return canvas.toBuffer();
+    } catch (error: unknown) {
+      logger.error('Error generating skill tree image:', error);
+      return createErrorCanvas();
+    }
+  }
