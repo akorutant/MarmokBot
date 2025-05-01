@@ -31,6 +31,7 @@ class ConfigCommands {
         @SlashChoice({ name: "Chat ID for logs messages", value: "log_chat"})
         @SlashChoice({ name: "Chat ID for giving roles", value: "give_role_chat" })
         @SlashChoice({ name: "Role ID for give to user", value: "give_role_id" })
+        @SlashChoice({ name: "Role description", value: "role_description" })
         @SlashOption({
             description: "Выберите ключ конфига",
             name: "key",
@@ -49,15 +50,75 @@ class ConfigCommands {
     ) {
         try {
             const configRepository = AppDataSource.getRepository(Config);
+            
+            // Особая логика для описаний ролей
+            if (key === "role_description") {
+                // Проверяем формат - должен быть "roleId:description"
+                const parts = value.split(":", 2);
+                if (parts.length !== 2 || !parts[0] || !parts[1]) {
+                    const embed = createErrorEmbed(
+                        "Неверный формат. Для описания ролей используйте формат 'roleId:описание'", 
+                        interaction.user
+                    );
+                    return interaction.reply({ embeds: [embed] });
+                }
+                
+                const roleId = parts[0];
+                const description = parts[1];
+                
+                // Проверяем существование роли
+                const role = interaction.guild?.roles.cache.get(roleId);
+                if (!role) {
+                    const embed = createErrorEmbed(
+                        `Роль с ID ${roleId} не найдена на сервере`,
+                        interaction.user
+                    );
+                    return interaction.reply({ embeds: [embed] });
+                }
+                
+                const existingRole = await configRepository.findOne({
+                    where: { key: "give_role_id", value: roleId }
+                });
+                
+                if (!existingRole) {
+                    const embed = createErrorEmbed(
+                        `Роль ${role.name} не добавлена в список доступных для выдачи. Сначала добавьте её через /config add key:give_role_id value:${roleId}`,
+                        interaction.user
+                    );
+                    return interaction.reply({ embeds: [embed] });
+                }
+                
+                if (description.length > 100) {
+                    const embed = createErrorEmbed(
+                        "Описание роли слишком длинное (более 100 символов). Пожалуйста, сократите его.",
+                        interaction.user
+                    );
+                    return interaction.reply({ embeds: [embed] });
+                }
+                
+                const existingDescs = await configRepository.find({
+                    where: { key: "role_description" }
+                });
+                
+                const existingDesc = existingDescs.find(config => 
+                    config.value.startsWith(`${roleId}:`)
+                );
+                
+                if (existingDesc) {
+                    await configRepository.delete(existingDesc.id);
+                    logger.info(`Удалено старое описание роли ${role.name}`);
+                }
+            }
+            
             const newConfig = configRepository.create({ key, value });
             await configRepository.save(newConfig);
             logger.info(`Добавлен новый конфиг ${key} = ${value}`);
-
+    
             const embed = createSuccessEmbed(`Конфиг **${key}** установлен: \`${value}\``, interaction.user);
             await interaction.reply({ embeds: [embed] });
         } catch (error) {
             logger.error("Ошибка обновления конфига:", error);
-
+    
             const embed = createErrorEmbed("Ошибка при сохранении конфига", interaction.user);
             await interaction.reply({ embeds: [embed] });
         }
@@ -180,6 +241,7 @@ class ConfigCommands {
         @SlashChoice({ name: "Chat ID for logs messages", value: "log_chat"})
         @SlashChoice({ name: "Chat ID for giving roles", value: "give_role_chat" })
         @SlashChoice({ name: "Role ID for give to user", value: "give_role_id" })
+        @SlashChoice({ name: "Role description", value: "role_description" })
         @SlashOption({
             description: "Выберите ключ для удаления",
             name: "key",
@@ -198,13 +260,40 @@ class ConfigCommands {
     ) {
         try {
             const configRepository = AppDataSource.getRepository(Config);
+            
+            if (key === "role_description") {
+                if (!value.includes(":")) {
+                    const roleId = value;
+                    
+                    const existingDescs = await configRepository.find({
+                        where: { key: "role_description" }
+                    });
+                    
+                    const existingDesc = existingDescs.find(config => 
+                        config.value.startsWith(`${roleId}:`)
+                    );
+                    
+                    if (!existingDesc) {
+                        const embed = createErrorEmbed(`Описание для роли с ID ${roleId} не найдено`, interaction.user);
+                        return interaction.reply({ embeds: [embed] });
+                    }
+                    
+                    await configRepository.delete(existingDesc.id);
+                    logger.info(`Удалено описание для роли с ID ${roleId}`);
+                    
+                    const embed = createSuccessEmbed(`Описание для роли с ID ${roleId} успешно удалено`, interaction.user);
+                    await interaction.reply({ embeds: [embed] });
+                    return;
+                }
+            }
+            
             const result = await configRepository.delete({ key, value });
-
+    
             if (result.affected === 0) {
                 const embed = createErrorEmbed(`Конфиг **${key}** **${value}** не найден`, interaction.user);
                 return interaction.reply({ embeds: [embed] });
             }
-
+    
             if (key === "custom_background") {
                 try {
                     const __filename = fileURLToPath(import.meta.url);
@@ -220,14 +309,14 @@ class ConfigCommands {
                     logger.error(`Ошибка при удалении файла фона: ${fileError}`);
                 }
             }
-
+    
             logger.info(`Удален конфиг ${key} ${value}`);
-
+    
             const embed = createSuccessEmbed(`Конфиг **${key}** **${value}** успешно удален`, interaction.user);
             await interaction.reply({ embeds: [embed] });
         } catch (error) {
             logger.error("Ошибка удаления конфига:", error);
-
+    
             const embed = createErrorEmbed("Ошибка при удалении конфига", interaction.user);
             await interaction.reply({ embeds: [embed] });
         }
@@ -284,10 +373,10 @@ class ConfigCommands {
 
     private createConfigFields(configsByKey: Record<string, string[]>): Array<{ name: string, value: string }> {
         const fields: Array<{ name: string, value: string }> = [];
-
+    
         for (const [key, values] of Object.entries(configsByKey)) {
             let displayName = key;
-
+    
             switch (key) {
                 case "low_mod_level":
                     displayName = "🟢 Low Mod Roles";
@@ -315,16 +404,32 @@ class ConfigCommands {
                     break;
                 case "give_role_chat":
                     displayName = "💬 Chat for giving roles";
+                    break;
                 case "give_role_id":
                     displayName = "💬 IDs for giving roles";
+                    break;
+                case "role_description":
+                    displayName = "📝 Role Descriptions";
+                    break;
             }
-
-            fields.push({
-                name: displayName,
-                value: values.map(v => `\`${v}\``).join(", ")
-            });
+    
+            if (key === "role_description") {
+                fields.push({
+                    name: displayName,
+                    value: values.map(v => {
+                        const [roleId, ...descParts] = v.split(":");
+                        const desc = descParts.join(":");
+                        return `\`${roleId}\`: ${desc}`;
+                    }).join("\n")
+                });
+            } else {
+                fields.push({
+                    name: displayName,
+                    value: values.map(v => `\`${v}\``).join(", ")
+                });
+            }
         }
-
+    
         return fields;
     }
 }

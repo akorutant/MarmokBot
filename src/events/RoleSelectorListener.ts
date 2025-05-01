@@ -48,13 +48,13 @@ export class RoleSelector {
                 return;
             }
             
-            const roleDescriptions: Record<string, string> = {};
-            const roleDescConfig = await configRepository.find({ where: { key: "role_description" } });
+            const roleDescriptions = await configRepository.find({ where: { key: "role_description" } });
             
-            for (const descConfig of roleDescConfig) {
-                const parts = descConfig.value.split(":", 2);
-                if (parts.length === 2) {
-                    roleDescriptions[parts[0]] = parts[1];
+            const descriptionMap: Record<string, string> = {};
+            for (const desc of roleDescriptions) {
+                const [id, ...descParts] = desc.value.split(":");
+                if (id) {
+                    descriptionMap[id] = descParts.join(":");
                 }
             }
             
@@ -79,7 +79,7 @@ export class RoleSelector {
                     .setLabel(role.name)
                     .setValue(role.id);
                 
-                const description = roleDescriptions[role.id] || `Нажмите, чтобы получить/убрать роль ${role.name}`;
+                const description = descriptionMap[role.id] || `Нажмите, чтобы получить/убрать роль ${role.name}`;
                 option.setDescription(description.substring(0, 100)); 
                 
                 return option;
@@ -101,8 +101,8 @@ export class RoleSelector {
                     {
                         name: "Доступные роли",
                         value: availableRoles.map(role => {
-                            const desc = roleDescriptions[role.id] ? 
-                                ` - ${roleDescriptions[role.id]}` : '';
+                            const desc = descriptionMap[role.id] ? 
+                                ` - ${descriptionMap[role.id]}` : '';
                             return `• **${role.name}**${desc}`;
                         }).join('\n')
                     }
