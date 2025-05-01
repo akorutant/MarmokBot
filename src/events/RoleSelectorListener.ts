@@ -5,10 +5,7 @@ import {
     StringSelectMenuBuilder, 
     StringSelectMenuOptionBuilder,
     StringSelectMenuInteraction,
-    ButtonInteraction,
     TextChannel,
-    ButtonBuilder,
-    ButtonStyle,
     Events,
     GuildMember
 } from "discord.js";
@@ -20,7 +17,7 @@ import logger from "../services/logger.js";
 @Discord()
 export class RoleSelector {
     @Once({ event: "ready" })
-    async onReady(client: Client): Promise<void> {
+    async onReady([client]: [Client]): Promise<void> {
         try {
             const configRepository = AppDataSource.getRepository(Config);
             const roleChannels = await configRepository.find({ where: { key: "give_role_chat" } });
@@ -28,26 +25,7 @@ export class RoleSelector {
             if (roleChannels.length) {
                 logger.info(`Найдено ${roleChannels.length} каналов для выдачи ролей`);
             }
-            
-            client.on(Events.InteractionCreate, async (interaction) => {
-                try {
-                    if (interaction.isStringSelectMenu() && interaction.customId === 'select-role') {
-                        await this.handleRoleSelection(interaction).catch(error => {
-                            logger.error(`Ошибка при обработке выбора роли: ${error}`);
-                        });
-                    }
-                    
-                    if (interaction.isButton() && interaction.customId === 'refresh-role-menu') {
-                        await this.handleRefreshButton(interaction).catch(error => {
-                            logger.error(`Ошибка при обновлении меню: ${error}`);
-                        });
-                    }
-                } catch (error) {
-                    logger.error(`Ошибка при обработке взаимодействия: ${error}`);
-                }
-            });
-            
-            logger.info("✅ Обработчики меню ролей зарегистрированы");
+            logger.info("✅ Обработчики меню ролей готовы к использованию");
         } catch (error) {
             logger.error(`Ошибка при инициализации меню ролей: ${error}`);
         }
@@ -98,14 +76,8 @@ export class RoleSelector {
                 
             const row = new ActionRowBuilder<StringSelectMenuBuilder>()
                 .addComponents(select);
-                
-            const refreshButton = new ButtonBuilder()
-                .setCustomId('refresh-role-menu')
-                .setLabel('Обновить список ролей')
-                .setStyle(ButtonStyle.Secondary);
-                
-            const buttonRow = new ActionRowBuilder<ButtonBuilder>()
-                .addComponents(refreshButton);
+            
+            // Кнопку обновления удалили, как и запрошено
             
             const embed = createEmbed({
                 title: "🎭 Выбор ролей",
@@ -121,7 +93,7 @@ export class RoleSelector {
             
             await channel.send({
                 embeds: [embed],
-                components: [row, buttonRow]
+                components: [row] // Убрали buttonRow из массива компонентов
             });
             
             logger.info(`Создано меню выбора ролей в канале ${channel.name}`);
@@ -204,37 +176,6 @@ export class RoleSelector {
                 });
             } catch (replyError) {
                 logger.error(`Ошибка при ответе об изменении ролей: ${replyError}`);
-            }
-        }
-    }
-    
-    async handleRefreshButton(interaction: ButtonInteraction): Promise<void> {
-        await interaction.deferReply({ ephemeral: true }).catch(error => {
-            logger.error(`Ошибка при отложенном ответе обновления: ${error}`);
-            return;
-        });
-        
-        try {
-            await interaction.message.delete().catch(error => {
-                logger.error(`Ошибка при удалении сообщения: ${error}`);
-            });
-            
-            await this.createRoleMenu(interaction.channelId, interaction.client);
-            
-            await interaction.editReply({
-                content: '✅ Меню ролей обновлено.'
-            }).catch(error => {
-                logger.error(`Ошибка при ответе об обновлении меню: ${error}`);
-            });
-            
-        } catch (error) {
-            logger.error(`Ошибка при обновлении меню ролей: ${error}`);
-            try {
-                await interaction.editReply({
-                    content: '❌ Произошла ошибка при обновлении меню ролей.'
-                });
-            } catch (replyError) {
-                logger.error(`Ошибка при ответе об ошибке обновления меню: ${replyError}`);
             }
         }
     }
