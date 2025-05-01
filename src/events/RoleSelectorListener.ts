@@ -79,7 +79,7 @@ export class RoleSelector {
                     .setLabel(role.name)
                     .setValue(role.id);
                 
-                const description = descriptionMap[role.id] || `Нажмите, чтобы получить/убрать роль ${role.name}`;
+                const description = `Нажмите, чтобы получить/убрать роль ${role.name}`;
                 option.setDescription(description.substring(0, 100)); 
                 
                 return option;
@@ -104,7 +104,7 @@ export class RoleSelector {
                             const desc = descriptionMap[role.id] ? 
                                 ` - ${descriptionMap[role.id]}` : '';
                             return `• **${role.name}**${desc}`;
-                        }).join('\n')
+                        }).join('\n\n')
                     }
                 ]
             });
