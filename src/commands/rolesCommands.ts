@@ -48,13 +48,15 @@ export class RoleSelector {
                 return;
             }
             
-            const roleDescriptions: Record<string, string> = {};
-            const roleDescConfig = await configRepository.find({ where: { key: "role_description" } });
+            const allRoleDescs = await configRepository.find({
+                where: { key: "role_description" }
+            });
             
-            for (const descConfig of roleDescConfig) {
-                const parts = descConfig.value.split(":", 2);
-                if (parts.length === 2) {
-                    roleDescriptions[parts[0]] = parts[1];
+            const roleDescriptions: Record<string, string> = {};
+            for (const desc of allRoleDescs) {
+                const [id, ...descParts] = desc.value.split(":");
+                if (id) {
+                    roleDescriptions[id] = descParts.join(":");
                 }
             }
             
