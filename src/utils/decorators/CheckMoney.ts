@@ -14,6 +14,7 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
         try {
             let bet: number;
             let targetUserId: string | undefined;
+            await interaction.deferReply()
 
             if (interaction instanceof CommandInteraction) {
                 const betOption = interaction.options.get("bet");
