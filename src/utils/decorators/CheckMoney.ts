@@ -20,19 +20,23 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
             let bet: number;
             let targetUserId: string | undefined;
             
-            await interaction.deferReply({ ephemeral: true });
-
             if (interaction instanceof CommandInteraction) {
                 const betOption = interaction.options.get("bet");
                 if (!betOption?.value) {
-                    await interaction.editReply("❌ Укажите сумму ставки");
+                    await interaction.reply({
+                        content: "❌ Укажите сумму ставки",
+                        ephemeral: true
+                    });
                     return;
                 }
                 bet = betOption.value as number;
             } else {
                 const match = interaction.customId.match(/duel_(\d+)_(\d+)/);
                 if (!match) {
-                    await interaction.editReply("❌ Неверный формат дуэли");
+                    await interaction.reply({
+                        content: "❌ Неверный формат дуэли",
+                        ephemeral: true
+                    });
                     return;
                 }
                 bet = parseInt(match[2]);
@@ -40,7 +44,10 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
             }
 
             if (bet <= 0) {
-                await interaction.editReply("❌ Неверная сумма ставки");
+                await interaction.reply({
+                    content: "❌ Неверная сумма ставки",
+                    ephemeral: true
+                });
                 return;
             }
 
@@ -51,12 +58,18 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
             });
 
             if (!user?.currency) {
-                await interaction.editReply("❌ Ваш аккаунт не найден");
+                await interaction.reply({
+                    content: "❌ Ваш аккаунт не найден",
+                    ephemeral: true
+                });
                 return;
             }
 
             if (user.currency.currencyCount < BigInt(bet)) {
-                await interaction.editReply("❌ Недостаточно средств");
+                await interaction.reply({
+                    content: "❌ Недостаточно средств",
+                    ephemeral: true
+                });
                 return;
             }
 
@@ -67,25 +80,28 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
                 });
 
                 if (!targetUser?.currency) {
-                    await interaction.editReply("❌ Оппонент не найден");
+                    await interaction.reply({
+                        content: "❌ Оппонент не найден",
+                        ephemeral: true
+                    });
                     return;
                 }
 
                 if (targetUser.currency.currencyCount < BigInt(bet)) {
-                    await interaction.editReply("❌ У оппонента недостаточно средств");
+                    await interaction.reply({
+                        content: "❌ У оппонента недостаточно средств",
+                        ephemeral: true
+                    });
                     return;
                 }
             }
-    
             
             await next();
         } catch (error) {
             logger.error("CheckMoney error:", error);
             
             try {
-                if (interaction.deferred) {
-                    await interaction.editReply("❌ Ошибка проверки баланса");
-                } else if (!interaction.replied) {
+                if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
                         content: "❌ Ошибка проверки баланса",
                         ephemeral: true
