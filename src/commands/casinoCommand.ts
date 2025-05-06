@@ -34,7 +34,7 @@ class CasinoCommands {
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
         EnsureUserGuard(),
-        Cooldown({ seconds: 10 })
+        Cooldown({ minutes: 1 })
     )
     async random(
         @SlashOption({
@@ -51,15 +51,6 @@ class CasinoCommands {
         try {
             await interaction.deferReply();
             const discordUser = interaction.user;
-
-            if (bet < this.MIN_BET || bet > this.MAX_BET) {
-                const errorEmbed = createErrorEmbed(
-                    `Размер ставки должен быть от ${this.MIN_BET}$ до ${this.MAX_BET}$`,
-                    interaction.user
-                );
-                await interaction.editReply({ embeds: [errorEmbed] });
-                return;
-            }
 
             const dbUser = await AppDataSource.getRepository(DBUser).findOneOrFail({
                 where: { discordId: discordUser.id },
@@ -129,7 +120,7 @@ class CasinoCommands {
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
         EnsureUserGuard(),
-        Cooldown({ seconds: 5 })
+        Cooldown({ minutes: 1 })
     )
     async blackjack(
         @SlashOption({

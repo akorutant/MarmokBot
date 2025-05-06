@@ -19,7 +19,7 @@ class CoinflipCommand {
         ChannelGuard("user_commands_channel"),
         CheckMoney(),
         EnsureUserGuard(),
-        Cooldown({ seconds: 10 })
+        Cooldown({ minutes: 1 })
     )
     async coin(
         @SlashChoice({ name: "Орел", value: "eagle" })

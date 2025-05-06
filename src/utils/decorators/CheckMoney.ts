@@ -19,6 +19,7 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
 
             let bet: number;
             let targetUserId: string | undefined;
+            await interaction.deferReply()
 
             await interaction.deferReply({ ephemeral: true });
 
