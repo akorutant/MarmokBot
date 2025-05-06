@@ -19,8 +19,7 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
 
             let bet: number;
             let targetUserId: string | undefined;
-            await interaction.deferReply()
-
+            
             await interaction.deferReply({ ephemeral: true });
 
             if (interaction instanceof CommandInteraction) {
@@ -77,7 +76,7 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
                     return;
                 }
             }
-            await interaction.editReply("✅ Проверка баланса успешна");
+    
             
             await next();
         } catch (error) {
