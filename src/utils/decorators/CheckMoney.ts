@@ -12,26 +12,27 @@ interface DuelData {
 export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteraction> {
     return async (interaction, _, next) => {
         try {
+            if (interaction.replied || interaction.deferred) {
+                logger.warn("CheckMoney: Interaction already replied or deferred");
+                return next(); 
+            }
+
             let bet: number;
             let targetUserId: string | undefined;
+
+            await interaction.deferReply({ ephemeral: true });
 
             if (interaction instanceof CommandInteraction) {
                 const betOption = interaction.options.get("bet");
                 if (!betOption?.value) {
-                    await interaction.reply({
-                        content: "❌ Укажите сумму ставки",
-                        ephemeral: true
-                    });
+                    await interaction.editReply("❌ Укажите сумму ставки");
                     return;
                 }
                 bet = betOption.value as number;
             } else {
                 const match = interaction.customId.match(/duel_(\d+)_(\d+)/);
                 if (!match) {
-                    await interaction.reply({
-                        content: "❌ Неверный формат дуэли",
-                        ephemeral: true
-                    });
+                    await interaction.editReply("❌ Неверный формат дуэли");
                     return;
                 }
                 bet = parseInt(match[2]);
@@ -39,10 +40,7 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
             }
 
             if (bet <= 0) {
-                await interaction.reply({
-                    content: "❌ Неверная сумма ставки",
-                    ephemeral: true
-                });
+                await interaction.editReply("❌ Неверная сумма ставки");
                 return;
             }
 
@@ -53,18 +51,12 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
             });
 
             if (!user?.currency) {
-                await interaction.reply({
-                    content: "❌ Ваш аккаунт не найден",
-                    ephemeral: true
-                });
+                await interaction.editReply("❌ Ваш аккаунт не найден");
                 return;
             }
 
             if (user.currency.currencyCount < BigInt(bet)) {
-                await interaction.reply({
-                    content: "❌ Недостаточно средств",
-                    ephemeral: true
-                });
+                await interaction.editReply("❌ Недостаточно средств");
                 return;
             }
 
@@ -75,29 +67,33 @@ export function CheckMoney(): GuardFunction<CommandInteraction | ButtonInteracti
                 });
 
                 if (!targetUser?.currency) {
-                    await interaction.reply({
-                        content: "❌ Оппонент не найден",
-                        ephemeral: true
-                    });
+                    await interaction.editReply("❌ Оппонент не найден");
                     return;
                 }
 
                 if (targetUser.currency.currencyCount < BigInt(bet)) {
-                    await interaction.reply({
-                        content: "❌ У оппонента недостаточно средств",
-                        ephemeral: true
-                    });
+                    await interaction.editReply("❌ У оппонента недостаточно средств");
                     return;
                 }
             }
-
+            await interaction.editReply("✅ Проверка баланса успешна");
+            
             await next();
         } catch (error) {
             logger.error("CheckMoney error:", error);
-            await interaction.reply({
-                content: "❌ Ошибка проверки баланса",
-                ephemeral: true
-            });
+            
+            try {
+                if (interaction.deferred) {
+                    await interaction.editReply("❌ Ошибка проверки баланса");
+                } else if (!interaction.replied) {
+                    await interaction.reply({
+                        content: "❌ Ошибка проверки баланса",
+                        ephemeral: true
+                    });
+                }
+            } catch (replyError) {
+                logger.error("Failed to send error response:", replyError);
+            }
         }
     };
 }
