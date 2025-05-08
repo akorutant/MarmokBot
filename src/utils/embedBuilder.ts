@@ -1,4 +1,4 @@
-import { EmbedBuilder, User, Guild, ColorResolvable, CommandInteraction, Message } from "discord.js";
+import { EmbedBuilder, User, Guild, ColorResolvable, CommandInteraction, Message, TextDisplayBuilder, ContainerBuilder } from "discord.js";
 import { calculateNextLevelExp } from "./levelUpUtils.js";
 import { getHoursString } from "./hoursUtils.js";
 import { GiftReward } from "../types/giftTypes.js";
@@ -7,6 +7,8 @@ import { RARITY_COLORS } from "../constants/colors.js";
 import { pluralizeGifts } from "./giftUtils.js";
 import { GiftStats } from "../entities/GiftStats.js";
 import { TopEmbedOptions, TopUser } from "../types/embedTypes.js";
+import { readFileSync } from "fs";
+import { join } from 'path';
 
 export enum EmbedColors {
   DEFAULT = 0x5865F2,

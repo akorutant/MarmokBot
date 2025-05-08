@@ -46,7 +46,6 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
 
                 const defaultMessage = `⏳ Эта команда на кулдауне. Попробуйте через ${timeString}`;
                 const customMessage = typeof options === "object" ? options.message : undefined;
-
                 await interaction.reply({
                     content: customMessage
                         ? customMessage.replace("{time}", timeString)
@@ -65,11 +64,16 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
             });
 
         } catch (error) {
-            logger.error(`Cooldown error for ${commandName}:`, error);
-            await interaction.reply({
-                content: "❌ Произошла ошибка при проверке кулдауна",
-                ephemeral: true
-            });
+            try {
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: "❌ Ошибка проверки баланса",
+                        ephemeral: true
+                    });
+                }
+            } catch (replyError) {
+                logger.error("Failed to send error response:", replyError);
+            }
         }
     };
 }
