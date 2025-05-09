@@ -28,12 +28,11 @@ export class ReactionsListener {
             const hasImage = message.attachments.some(attachment => 
                 attachment.contentType?.startsWith("image/") ||
                 attachment.contentType?.startsWith("video/")
-
             );
 
             if (hasImage) {
                 await Promise.all(
-                    this.REACTIONS.map(emoji => message.react(emoji))
+                    ["👍", "👎"].map(emoji => message.react(emoji))
                 );
                 logger.info(`Добавлены реакции к изображению от ${message.author.tag}`);
             }
