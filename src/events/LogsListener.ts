@@ -27,7 +27,7 @@ export class LogsListener {
             }
 
             if (message.author?.bot) return;
-            
+
             const configRepository = AppDataSource.getRepository(Config);
             const logConfig = await configRepository.findOne({ where: { key: "log_chat" } });
             if (!logConfig?.value) {

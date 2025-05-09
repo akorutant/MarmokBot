@@ -13,10 +13,10 @@ import { GiftStats } from "../entities/GiftStats.js";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
 import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 
+const VOICE_MINUTES_PER_GIFT = 480;
+
 @Discord()
 class MyGiftsCommand {
-    private readonly VOICE_MINUTES_PER_GIFT = 480;
-
     @Slash({
         name: "mygifts",
         description: "Проверить информацию о ваших доступных подарках"
@@ -32,28 +32,28 @@ class MyGiftsCommand {
         try {
             await interaction.deferReply();
             const discordUser = interaction.user;
-            
+
             const userRepository = AppDataSource.getRepository(DBUser);
             const dbUser = await userRepository.findOneOrFail({
                 where: { discordId: discordUser.id }
             });
-            
+
             const giftStatsRepository = AppDataSource.getRepository(GiftStats);
             const giftStats = await giftStatsRepository.findOneOrFail({
                 where: { discordId: discordUser.id }
             });
-              
+
             const totalVoiceMinutes = Number(dbUser.voiceMinutes);
-            
-            const potentialGifts = Math.floor(totalVoiceMinutes / this.VOICE_MINUTES_PER_GIFT);
-            
+
+            const potentialGifts = Math.floor(totalVoiceMinutes / VOICE_MINUTES_PER_GIFT);
+
             const claimedGifts = giftStats.claimedGiftsFromVoice;
             const availableGifts = giftStats.availableGifts;
-            
-            const minutesForNextGift = this.VOICE_MINUTES_PER_GIFT - (totalVoiceMinutes % this.VOICE_MINUTES_PER_GIFT);
+
+            const minutesForNextGift = VOICE_MINUTES_PER_GIFT - (totalVoiceMinutes % VOICE_MINUTES_PER_GIFT);
             const hoursForNextGift = Math.floor(minutesForNextGift / 60);
             const remainingMinutes = minutesForNextGift % 60;
-            
+
             const embed = createGiftListEmbed(
                 interaction.user,
                 totalVoiceMinutes,
@@ -63,7 +63,7 @@ class MyGiftsCommand {
                 remainingMinutes,
                 giftStats
             );
-            
+
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
             logger.error("Ошибка в команде mygifts:", error);
@@ -99,18 +99,18 @@ class OpenGiftCommand {
         try {
             await interaction.deferReply();
             const discordUser = interaction.user;
-            
+
             const userRepository = AppDataSource.getRepository(DBUser);
             const dbUser = await userRepository.findOneOrFail({
                 where: { discordId: discordUser.id },
                 relations: ["currency"]
             });
-            
+
             const giftStatsRepository = AppDataSource.getRepository(GiftStats);
             const giftStats = await giftStatsRepository.findOneOrFail({
                 where: { discordId: discordUser.id }
             });
-            
+
             if (giftStats.availableGifts <= 0) {
                 const errorEmbed = createErrorEmbed(
                     "У вас нет доступных подарков для открытия. Накапливайте время в голосовых каналах, чтобы получить подарки!",
@@ -118,25 +118,25 @@ class OpenGiftCommand {
                 );
                 return await interaction.editReply({ embeds: [errorEmbed] });
             }
-            
+
             const giftsToOpen = Math.min(amount, giftStats.availableGifts);
-            
+
             const results: GiftReward[] = [];
             let totalWin = 0;
-            
+
             for (let i = 0; i < giftsToOpen; i++) {
                 const reward = openGift();
                 results.push(reward);
-                
+
                 if (reward.type === 'currency' && reward.amount) {
                     totalWin += reward.amount;
                 }
             }
-            
+
             giftStats.availableGifts -= giftsToOpen;
             giftStats.totalGiftsClaimed += giftsToOpen;
             await giftStatsRepository.save(giftStats);
-            
+
             if (totalWin > 0) {
                 const currencyRepository = AppDataSource.getRepository(Currency);
                 await currencyRepository.increment(
@@ -145,16 +145,16 @@ class OpenGiftCommand {
                     totalWin
                 );
             }
-            
+
             const embed = createGiftResultEmbed(results, totalWin, 0, interaction);
-            
+
             if (giftsToOpen > 1) {
                 embed.setTitle(`🎁 Открытие ${giftsToOpen} ${pluralizeGifts(giftsToOpen)} 🎁`);
                 embed.setDescription(`<@${interaction.user.id}> открывает ${giftsToOpen} ${pluralizeGifts(giftsToOpen)}!`);
             }
-            
+
             logger.info(`Пользователь ${discordUser.id} открыл ${giftsToOpen} подарков и получил ${totalWin}$`);
-            
+
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
             logger.error("Ошибка в команде opengift:", error);
@@ -165,11 +165,11 @@ class OpenGiftCommand {
 }
 
 @Discord()
-@SlashGroup({ 
-    description: "Команды взаимодействия с подарками [Модератор]", 
+@SlashGroup({
+    description: "Команды взаимодействия с подарками [Модератор]",
     name: "gift",
-    defaultMemberPermissions: "0", 
-    dmPermission: false, 
+    defaultMemberPermissions: "0",
+    dmPermission: false,
 })
 @SlashGroup("gift")
 class GiftModCommands {
@@ -190,7 +190,7 @@ class GiftModCommands {
             required: true
         })
         user: any,
-        
+
         @SlashOption({
             name: "amount",
             description: "Количество подарков для добавления",
@@ -199,30 +199,30 @@ class GiftModCommands {
             minValue: 1
         })
         amount: number,
-        
+
         interaction: CommandInteraction
     ) {
         try {
             await interaction.deferReply();
-            
+
             const targetUserId = user.id;
-            
+
             const giftStatsRepository = AppDataSource.getRepository(GiftStats);
             const giftStats = await giftStatsRepository.findOneOrFail({
                 where: { discordId: targetUserId }
             });
-            
+
             giftStats.availableGifts += amount;
             await giftStatsRepository.save(giftStats);
-            
+
             const successEmbed = createSuccessEmbed(
                 `Успешно добавлено **${amount} ${pluralizeGifts(amount)}** пользователю <@${targetUserId}>.\n` +
                 `Теперь доступно: **${giftStats.availableGifts} ${pluralizeGifts(giftStats.availableGifts)}**`,
                 interaction.user
             );
-            
+
             logger.info(`Модератор ${interaction.user.id} добавил ${amount} подарков пользователю ${targetUserId}`);
-            
+
             await interaction.editReply({ embeds: [successEmbed] });
         } catch (error) {
             logger.error("Ошибка в команде addgifts:", error);
@@ -230,7 +230,7 @@ class GiftModCommands {
             await interaction.editReply({ embeds: [errorEmbed] });
         }
     }
-    
+
     @Slash({
         name: "remove",
         description: "Удалить подарки у пользователя [Модератор]"
@@ -248,7 +248,7 @@ class GiftModCommands {
             required: true
         })
         user: any,
-        
+
         @SlashOption({
             name: "amount",
             description: "Количество подарков для удаления",
@@ -257,31 +257,31 @@ class GiftModCommands {
             minValue: 1
         })
         amount: number,
-        
+
         interaction: CommandInteraction
     ) {
         try {
             await interaction.deferReply();
-         
+
             const targetUserId = user.id;
-            
+
             const giftStatsRepository = AppDataSource.getRepository(GiftStats);
             const giftStats = await giftStatsRepository.findOneOrFail({
                 where: { discordId: targetUserId }
             });
-            
+
             const giftsToRemove = Math.min(amount, giftStats.availableGifts);
             giftStats.availableGifts -= giftsToRemove;
             await giftStatsRepository.save(giftStats);
-            
+
             const successEmbed = createSuccessEmbed(
                 `Успешно удалено **${giftsToRemove} ${pluralizeGifts(giftsToRemove)}** у <@${targetUserId}>.\n` +
                 `Теперь доступно: **${giftStats.availableGifts} ${pluralizeGifts(giftStats.availableGifts)}**`,
                 interaction.user
             );
-            
+
             logger.info(`Модератор ${interaction.user.id} удалил ${giftsToRemove} подарков у пользователя ${targetUserId}`);
-            
+
             await interaction.editReply({ embeds: [successEmbed] });
         } catch (error) {
             logger.error("Ошибка в команде removegifts:", error);

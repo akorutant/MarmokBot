@@ -5,7 +5,7 @@ import logger from "../services/logger.js";
 @Discord()
 class GuildEnterListener {
   @On({ event: "guildMemberAdd" })
-  @EnsureUser() 
+  @EnsureUser()
   async onGuildMemberAdd([member]: ArgsOf<"guildMemberAdd">) {
     logger.info("Пользователь добавлен/обновлен в БД: %s", member.id);
   }

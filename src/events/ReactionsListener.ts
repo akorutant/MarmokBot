@@ -6,16 +6,14 @@ import logger from "../services/logger.js";
 
 @Discord()
 export class ReactionsListener {
-    private readonly REACTIONS = ["👍", "👎"];
-
     @On({ event: "messageCreate" })
     async onMessageCreate([message]: ArgsOf<"messageCreate">) {
         try {
             if (message.author.bot) return;
 
             const configRepository = AppDataSource.getRepository(Config);
-            const galleryConfig = await configRepository.findOne({ 
-                where: { key: "gallery_chat" } 
+            const galleryConfig = await configRepository.findOne({
+                where: { key: "gallery_chat" }
             });
 
             if (!galleryConfig || !galleryConfig.value) {
@@ -25,7 +23,7 @@ export class ReactionsListener {
 
             if (message.channelId !== galleryConfig.value) return;
 
-            const hasImage = message.attachments.some(attachment => 
+            const hasImage = message.attachments.some(attachment =>
                 attachment.contentType?.startsWith("image/") ||
                 attachment.contentType?.startsWith("video/")
             );
