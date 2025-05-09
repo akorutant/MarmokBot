@@ -168,7 +168,7 @@ export class LogsListener {
      * @param text Текст для разделения
      * @returns Массив частей сообщения
      */
-    private splitMessage(text: string): string[] {
+    private splitMessage = (text: string): string[] => {
         if (text.length <= MESSAGE_CHAR_LIMIT) {
             return [text];
         }
