@@ -44,7 +44,7 @@ export class LogsListener {
             const embed = createDeletedMessageLogEmbed(message);
 
             if (message.content) {
-                const contentChunks = this.splitMessage(message.content);
+                const contentChunks = LogsListener.splitMessage(message.content);
 
                 if (contentChunks.length === 1) {
                     embed.addFields({ name: "Содержимое", value: contentChunks[0] });
@@ -104,7 +104,7 @@ export class LogsListener {
             const embed = createEditedMessageLogEmbed(oldMessage, newMessage, "Сообщение отредактировано");
 
             if (oldMessage.content) {
-                const oldChunks = this.splitMessage(oldMessage.content);
+                const oldChunks = LogsListener.splitMessage(oldMessage.content);
 
                 if (oldChunks.length === 1) {
                     embed.addFields({ name: "Старое содержимое", value: oldChunks[0] });
@@ -121,7 +121,7 @@ export class LogsListener {
                     }
 
                     if (newMessage.content) {
-                        const newChunks = this.splitMessage(newMessage.content);
+                        const newChunks = LogsListener.splitMessage(newMessage.content);
                         for (let i = 0; i < newChunks.length; i++) {
                             const newPartEmbed = createContentPartEmbed(
                                 `Новое содержимое (часть ${i + 1})`,
@@ -137,7 +137,7 @@ export class LogsListener {
             }
 
             if (newMessage.content) {
-                const newChunks = this.splitMessage(newMessage.content);
+                const newChunks = LogsListener.splitMessage(newMessage.content);
                 if (newChunks.length === 1) {
                     embed.addFields({ name: "Новое содержимое", value: newChunks[0] });
                     await logChannel.send({ embeds: [embed] });
@@ -168,7 +168,7 @@ export class LogsListener {
      * @param text Текст для разделения
      * @returns Массив частей сообщения
      */
-    private splitMessage = (text: string): string[] => {
+    private static splitMessage(text: string): string[] {
         if (text.length <= MESSAGE_CHAR_LIMIT) {
             return [text];
         }

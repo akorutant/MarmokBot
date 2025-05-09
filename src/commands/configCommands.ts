@@ -335,7 +335,7 @@ class ConfigCommands {
                 return interaction.reply({ embeds: [embed] });
             }
 
-            const configsByKey = this.groupConfigsByKey(allConfigs);
+            const configsByKey = ConfigCommands.groupConfigsByKey(allConfigs);
             const embed = createEmbed({
                 title: "⚙️ Конфигурация сервера",
                 description: "Текущие настройки сервера",
@@ -345,7 +345,7 @@ class ConfigCommands {
                     text: `Запросил ${interaction.user.username}`,
                     iconURL: interaction.user.displayAvatarURL()
                 },
-                fields: this.createConfigFields(configsByKey)
+                fields: ConfigCommands.createConfigFields(configsByKey)
             });
 
             await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -358,7 +358,7 @@ class ConfigCommands {
         }
     }
 
-    private groupConfigsByKey(configs: Config[]): Record<string, string[]> {
+    private static groupConfigsByKey(configs: Config[]): Record<string, string[]> {
         const grouped: Record<string, string[]> = {};
 
         for (const config of configs) {
@@ -371,7 +371,7 @@ class ConfigCommands {
         return grouped;
     }
 
-    private createConfigFields(configsByKey: Record<string, string[]>): Array<{ name: string, value: string }> {
+    private static createConfigFields(configsByKey: Record<string, string[]>): Array<{ name: string, value: string }> {
         const fields: Array<{ name: string, value: string }> = [];
     
         for (const [key, values] of Object.entries(configsByKey)) {
