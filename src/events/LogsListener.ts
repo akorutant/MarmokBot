@@ -14,10 +14,10 @@ import {
     createContentPartEmbed
 } from "../utils/embedBuilder.js";
 
+const MESSAGE_CHAR_LIMIT = 2000;
+
 @Discord()
 export class LogsListener {
-    private readonly MESSAGE_CHAR_LIMIT = 2000;
-
     @On({ event: "messageDelete" })
     async onMessageDelete([rawMessage]: ArgsOf<"messageDelete">) {
         try {
@@ -169,20 +169,20 @@ export class LogsListener {
      * @returns Массив частей сообщения
      */
     private splitMessage(text: string): string[] {
-        if (text.length <= this.MESSAGE_CHAR_LIMIT) {
+        if (text.length <= MESSAGE_CHAR_LIMIT) {
             return [text];
         }
         const chunks: string[] = [];
         let current = "";
         for (const line of text.split("\n")) {
-            if (current.length + line.length + 1 > this.MESSAGE_CHAR_LIMIT) {
-                if (line.length > this.MESSAGE_CHAR_LIMIT) {
+            if (current.length + line.length + 1 > MESSAGE_CHAR_LIMIT) {
+                if (line.length > MESSAGE_CHAR_LIMIT) {
                     if (current) chunks.push(current);
                     current = "";
                     let pos = 0;
                     while (pos < line.length) {
-                        chunks.push(line.slice(pos, pos + this.MESSAGE_CHAR_LIMIT));
-                        pos += this.MESSAGE_CHAR_LIMIT;
+                        chunks.push(line.slice(pos, pos + MESSAGE_CHAR_LIMIT));
+                        pos += MESSAGE_CHAR_LIMIT;
                     }
                 } else {
                     chunks.push(current);
