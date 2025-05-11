@@ -21,7 +21,7 @@ import { BlackjackGame, GameState } from "../utils/blackjackUtils.js";
 })
 @SlashGroup("casino")
 class CasinoCommands {
-    private readonly TAX_RATE = 0.07;
+    private static TAX_RATE: number;
 
     @Slash({
         name: "random",
@@ -78,7 +78,7 @@ class CasinoCommands {
             let netWin = winAmount;
 
             if (winAmount > 0) {
-                tax = Math.floor(winAmount * this.TAX_RATE);
+                tax = Math.floor(winAmount * CasinoCommands.TAX_RATE);
                 netWin = winAmount - tax;
 
                 await currencyRepository.update(
