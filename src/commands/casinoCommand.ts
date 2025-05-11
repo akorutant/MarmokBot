@@ -21,8 +21,6 @@ import { BlackjackGame, GameState } from "../utils/blackjackUtils.js";
 })
 @SlashGroup("casino")
 class CasinoCommands {
-    private readonly MIN_BET = 1000;
-    private readonly MAX_BET = 10000;
     private readonly TAX_RATE = 0.07;
 
     @Slash({
@@ -110,9 +108,9 @@ class CasinoCommands {
         }
     }
 
-    private activeGames = new Map<string, GameState & { message?: Message }>();
+    private static activeGames = new Map<string, GameState & { message?: Message }>();
 
-    private game = new BlackjackGame();
+    private static game = new BlackjackGame();
 
     @Slash({ name: "blackjack", description: "Игра в 21 (Blackjack)" })
     @EnsureUser()
@@ -138,7 +136,7 @@ class CasinoCommands {
             await interaction.deferReply();
             const userId = interaction.user.id;
 
-            if (this.activeGames.has(userId)) {
+            if (CasinoCommands.activeGames.has(userId)) {
                 await interaction.editReply({
                     embeds: [createErrorEmbed(
                         "У вас уже есть активная игра! Завершите текущую игру перед началом новой.",
@@ -161,7 +159,7 @@ class CasinoCommands {
             );
 
             // Создаем игру
-            const deck = this.game.createDeck();
+            const deck = CasinoCommands.game.createDeck();
             const gameState: GameState & { message?: Message } = {
                 playerCards: [deck.pop()!, deck.pop()!],
                 dealerCards: [deck.pop()!, deck.pop()!],
@@ -171,7 +169,7 @@ class CasinoCommands {
             };
 
             // Отправляем сообщение с игрой
-            const embed = this.game.createGameEmbed(gameState, interaction.user);
+            const embed = CasinoCommands.game.createGameEmbed(gameState, interaction.user);
             const buttons = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId("hit")
@@ -197,7 +195,7 @@ class CasinoCommands {
             }) as Message;
 
             gameState.message = message;
-            this.activeGames.set(userId, gameState);
+            CasinoCommands.activeGames.set(userId, gameState);
 
             logger.info(`Blackjack: Игра начата для ${userId}, ставка ${bet}$`);
 
@@ -214,7 +212,7 @@ class CasinoCommands {
         try {
             await interaction.deferUpdate();
             const userId = interaction.user.id;
-            const gameState = this.activeGames.get(userId);
+            const gameState = CasinoCommands.activeGames.get(userId);
 
             if (!gameState || !gameState.playerTurn) {
                 await interaction.followUp({
@@ -228,9 +226,9 @@ class CasinoCommands {
             gameState.playerCards.push(gameState.deck.pop()!);
 
             // Проверяем перебор
-            if (this.game.calculateHand(gameState.playerCards) > 21) {
-                const { embed } = await this.game.dealerTurn(gameState, interaction.user);
-                const result = await this.game.processGameResult(gameState, userId);
+            if (CasinoCommands.game.calculateHand(gameState.playerCards) > 21) {
+                const { embed } = await CasinoCommands.game.dealerTurn(gameState, interaction.user);
+                const result = await CasinoCommands.game.processGameResult(gameState, userId);
 
                 await gameState.message?.edit({
                     embeds: [embed],
@@ -242,12 +240,12 @@ class CasinoCommands {
                     (result.winAmount > 0 ? `, выигрыш ${result.winAmount}$` : "")
                 );
 
-                this.activeGames.delete(userId);
+                CasinoCommands.activeGames.delete(userId);
                 return;
             }
 
             // Обновляем сообщение
-            const embed = this.game.createGameEmbed(gameState, interaction.user);
+            const embed = CasinoCommands.game.createGameEmbed(gameState, interaction.user);
             await gameState.message?.edit({ embeds: [embed] });
 
         } catch (error) {
@@ -260,7 +258,7 @@ class CasinoCommands {
         try {
             await interaction.deferUpdate();
             const userId = interaction.user.id;
-            const gameState = this.activeGames.get(userId);
+            const gameState = CasinoCommands.activeGames.get(userId);
 
             if (!gameState || !gameState.playerTurn) {
                 await interaction.followUp({
@@ -270,8 +268,8 @@ class CasinoCommands {
                 return;
             }
 
-            const { embed } = await this.game.dealerTurn(gameState, interaction.user);
-            const result = await this.game.processGameResult(gameState, userId);
+            const { embed } = await CasinoCommands.game.dealerTurn(gameState, interaction.user);
+            const result = await CasinoCommands.game.processGameResult(gameState, userId);
 
             await gameState.message?.edit({
                 embeds: [embed],
@@ -284,7 +282,7 @@ class CasinoCommands {
                 `, результат: ${result.result}`
             );
 
-            this.activeGames.delete(userId);
+            CasinoCommands.activeGames.delete(userId);
 
         } catch (error) {
             logger.error("Ошибка в обработке кнопки STAND:", error);
@@ -296,7 +294,7 @@ class CasinoCommands {
         try {
             await interaction.deferUpdate();
             const userId = interaction.user.id;
-            const gameState = this.activeGames.get(userId);
+            const gameState = CasinoCommands.activeGames.get(userId);
 
             if (!gameState || !gameState.playerTurn) {
                 await interaction.followUp({
@@ -343,8 +341,8 @@ class CasinoCommands {
             gameState.playerCards.push(gameState.deck.pop()!);
 
             // Завершаем игру
-            const { embed } = await this.game.dealerTurn(gameState, interaction.user);
-            const result = await this.game.processGameResult(gameState, userId);
+            const { embed } = await CasinoCommands.game.dealerTurn(gameState, interaction.user);
+            const result = await CasinoCommands.game.processGameResult(gameState, userId);
 
             await gameState.message?.edit({
                 embeds: [embed],
@@ -357,7 +355,7 @@ class CasinoCommands {
                 `, результат: ${result.result}`
             );
 
-            this.activeGames.delete(userId);
+            CasinoCommands.activeGames.delete(userId);
 
         } catch (error) {
             logger.error("Ошибка в обработке кнопки DOUBLE:", error);
@@ -369,7 +367,7 @@ class CasinoCommands {
         try {
             await interaction.deferUpdate();
             const userId = interaction.user.id;
-            const gameState = this.activeGames.get(userId);
+            const gameState = CasinoCommands.activeGames.get(userId);
 
             if (!gameState || !gameState.playerTurn) {
                 await interaction.followUp({
@@ -380,8 +378,8 @@ class CasinoCommands {
             }
 
             // Возвращаем половину ставки
-            const { winAmount } = await this.game.processGameResult(gameState, userId, true);
-            const embed = this.game.createGameEmbed(gameState, interaction.user, true);
+            const { winAmount } = await CasinoCommands.game.processGameResult(gameState, userId, true);
+            const embed = CasinoCommands.game.createGameEmbed(gameState, interaction.user, true);
             embed.setDescription(`**Вы сдались! Возвращено ${winAmount}$.**`);
 
             await gameState.message?.edit({
@@ -393,7 +391,7 @@ class CasinoCommands {
                 `Blackjack: Игрок ${userId} сдался, возвращено ${winAmount}$ из ставки ${gameState.bet}$`
             );
 
-            this.activeGames.delete(userId);
+            CasinoCommands.activeGames.delete(userId);
 
         } catch (error) {
             logger.error("Ошибка в обработке кнопки SURRENDER:", error);

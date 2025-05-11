@@ -12,7 +12,7 @@ import { Config } from "../entities/Config.js";
 
 @Discord()
 export class DuelCommand {
-    private duelTimeouts: Map<string, NodeJS.Timeout> = new Map();
+    private static duelTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
     @Slash({ description: "Начать дуэль", name: "duel" })
     @EnsureUser()
@@ -114,10 +114,10 @@ export class DuelCommand {
                 } catch (err) {
                     console.error("Error updating expired duel:", err);
                 }
-                this.duelTimeouts.delete(interaction.user.id);
+              DuelCommand.duelTimeouts.delete(interaction.user.id);
             }, 30000);
 
-            this.duelTimeouts.set(interaction.user.id, timeout);
+          DuelCommand.duelTimeouts.set(interaction.user.id, timeout);
         } catch (error) {
             console.error("Duel command error:", error);
             await interaction.reply({
@@ -154,10 +154,10 @@ export class DuelCommand {
           return;
         }
     
-        const timeout = this.duelTimeouts.get(creatorId);
+        const timeout = DuelCommand.duelTimeouts.get(creatorId);
         if (timeout) {
           clearTimeout(timeout);
-          this.duelTimeouts.delete(creatorId);
+          DuelCommand.duelTimeouts.delete(creatorId);
         }
     
         const creatorUser = await interaction.client.users.fetch(creatorId);
