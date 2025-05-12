@@ -6,7 +6,6 @@ import { RequireRoles } from "../utils/decorators/RequireRoles.js";
 import { createSuccessEmbed, createErrorEmbed } from "../utils/embedBuilder.js";
 import logger from "../services/logger.js";
 import { RoleSelector } from "../events/RoleSelectorListener.js";
-import { Container } from "typedi";
 
 @Discord()
 @SlashGroup({
@@ -16,7 +15,9 @@ import { Container } from "typedi";
 })
 @SlashGroup("roles")
 export class RoleCommands {
-        @Slash({ description: "Создать меню выбора ролей в текущем канале" })
+    // Remove the private roleSelector property completely
+    
+    @Slash({ description: "Создать меню выбора ролей в текущем канале" })
     @Guard(RequireRoles(["high_mod_level"]))
     async chat(interaction: CommandInteraction): Promise<void> {
         await interaction.deferReply({ ephemeral: true });
@@ -34,9 +35,7 @@ export class RoleCommands {
                 return;
             }
             
-            const roleSelector = Container.get(RoleSelector);
-            
-            await roleSelector.createRoleMenu(interaction.channelId, interaction.client);
+            await RoleSelector.createRoleMenu(interaction.channelId, interaction.client);
             
             const embed = createSuccessEmbed("Меню выбора ролей успешно создано в этом канале.", interaction.user);
             await interaction.editReply({ embeds: [embed] });

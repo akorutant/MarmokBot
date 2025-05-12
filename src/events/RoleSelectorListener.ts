@@ -31,7 +31,7 @@ export class RoleSelector {
         }
     }
     
-    async createRoleMenu(channelId: string, client: Client): Promise<void> {
+    static async createRoleMenu(channelId: string, client: Client): Promise<void> {
         try {
             const configRepository = AppDataSource.getRepository(Config);
             
