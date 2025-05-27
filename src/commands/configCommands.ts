@@ -29,7 +29,6 @@ class ConfigCommands {
         @SlashChoice({ name: "Allow chat commands for users ", value: "user_commands_channel" })
         @SlashChoice({ name: "Gallery chat for reactions", value: "gallery_chat" })
         @SlashChoice({ name: "Chat ID for logs messages", value: "log_chat" })
-        @SlashChoice({ name: "Chat ID for message edit logs", value: "edit_message_logs_chat" })
         @SlashChoice({ name: "Chat ID for giving roles", value: "give_role_chat" })
         @SlashChoice({ name: "Role ID for give to user", value: "give_role_id" })
         @SlashChoice({ name: "Role description", value: "role_description" })
@@ -240,7 +239,6 @@ class ConfigCommands {
         @SlashChoice({ name: "Custom Background For Profile", value: "custom_background" })
         @SlashChoice({ name: "Gallery chat for reactions", value: "gallery_chat" })
         @SlashChoice({ name: "Chat ID for logs messages", value: "log_chat" })
-        @SlashChoice({ name: "Chat ID for message edit logs", value: "edit_message_logs_chat" })
         @SlashChoice({ name: "Chat ID for giving roles", value: "give_role_chat" })
         @SlashChoice({ name: "Role ID for give to user", value: "give_role_id" })
         @SlashChoice({ name: "Role description", value: "role_description" })
@@ -403,9 +401,6 @@ class ConfigCommands {
                     break;
                 case "log_chat":
                     displayName = "💬 Log chat";
-                    break;
-                case "edit_message_logs_chat":
-                    displayName = "💬 Edit message log chat";
                     break;
                 case "give_role_chat":
                     displayName = "💬 Chat for giving roles";

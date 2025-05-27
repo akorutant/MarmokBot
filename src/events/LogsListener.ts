@@ -89,7 +89,7 @@ export class LogsListener {
             if (oldMessage.content === newMessage.content) return;
 
             const configRepository = AppDataSource.getRepository(Config);
-            const logConfig = await configRepository.findOne({ where: { key: "edit_message_logs_chat" } });
+            const logConfig = await configRepository.findOne({ where: { key: "log_chat" } });
             if (!logConfig?.value) {
                 logger.warn("Конфиг log_chat не найден");
                 return;
