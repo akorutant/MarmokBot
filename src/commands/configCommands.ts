@@ -51,9 +51,7 @@ class ConfigCommands {
         try {
             const configRepository = AppDataSource.getRepository(Config);
 
-            // Особая логика для описаний ролей
             if (key === "role_description") {
-                // Проверяем формат - должен быть "roleId:description"
                 const parts = value.split(":", 2);
                 if (parts.length !== 2 || !parts[0] || !parts[1]) {
                     const embed = createErrorEmbed(
@@ -66,7 +64,6 @@ class ConfigCommands {
                 const roleId = parts[0];
                 const description = parts[1];
 
-                // Проверяем существование роли
                 const role = interaction.guild?.roles.cache.get(roleId);
                 if (!role) {
                     const embed = createErrorEmbed(

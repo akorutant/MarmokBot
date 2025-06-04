@@ -14,6 +14,11 @@ import logger from "../../services/logger.js";
 export function EnsureUserGuard(): GuardFunction<ChatInputCommandInteraction<CacheType>, any> {
     return async (interaction, _, next) => {
       try {
+        if (!interaction || !interaction.user) {
+          logger.error("EnsureUserGuard: Invalid interaction or user");
+          return;
+        }
+
         const commandUsers: DiscordUser[] = [];
         
         try {
@@ -43,12 +48,16 @@ export function EnsureUserGuard(): GuardFunction<ChatInputCommandInteraction<Cac
         try {
           const hasBot = commandUsers.some(user => user?.bot);
           if (hasBot) {
-            await interaction.reply({
-              content: "⚠️ Ботов нельзя передавать!",
-              ephemeral: true
-            }).catch(replyError => {
-              logger.error("Error replying to interaction:", replyError);
-            });
+            if (!interaction.replied && !interaction.deferred) {
+              try {
+                await interaction.reply({
+                  content: "⚠️ Ботов нельзя передавать!",
+                  ephemeral: true
+                });
+              } catch (replyError) {
+                logger.error("Error replying to interaction:", replyError);
+              }
+            }
             return;
           }
         } catch (botCheckError) {
@@ -88,6 +97,22 @@ export function EnsureUserGuard(): GuardFunction<ChatInputCommandInteraction<Cac
         await next();
       } catch (error) {
         logger.error("EnsureUserGuard error:", error);
+        
+        try {
+          if (interaction && !interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: "❌ Ошибка проверки пользователя",
+              ephemeral: true
+            });
+          } else if (interaction && interaction.deferred && !interaction.replied) {
+            await interaction.editReply({
+              content: "❌ Ошибка проверки пользователя"
+            });
+          }
+        } catch (responseError) {
+          logger.error("Failed to send error response:", responseError);
+        }
+        
         await next(); 
       }
     };
@@ -106,62 +131,39 @@ async function createUserIfNeeded(discordId: string): Promise<void> {
 
     logger.info(`[EnsureUserGuard] Создаем нового пользователя ${discordId}`);
 
-    const newUser = userRepo.create({
-      discordId,
-      messageCount: 0n,
-      voiceMinutes: 0n
-    });
+    await AppDataSource.transaction(async (transactionalEntityManager) => {
+      const newUser = userRepo.create({
+        discordId,
+        messageCount: 0n,
+        voiceMinutes: 0n
+      });
 
-    await userRepo.save(newUser);
+      const savedUser = await transactionalEntityManager.save(newUser);
 
-    try {
       const exp = new Exp();
       exp.exp = 0n;
       exp.level = 1;
-      exp.user = newUser;
-      await AppDataSource.getRepository(Exp).save(exp);
-    } catch (expError) {
-      logger.error(`Error creating exp for user ${discordId}:`, expError);
-    }
+      exp.user = savedUser;
+      await transactionalEntityManager.save(exp);
 
-    try {
       const currency = new Currency();
       currency.currencyCount = 1000n;
-      currency.user = newUser;
-      await AppDataSource.getRepository(Currency).save(currency);
-    } catch (currencyError) {
-      logger.error(`Error creating currency for user ${discordId}:`, currencyError);
-    }
+      currency.user = savedUser;
+      await transactionalEntityManager.save(currency);
 
-    try {
       const giftStats = new GiftStats();
       giftStats.discordId = discordId;
-      giftStats.user = newUser;
+      giftStats.user = savedUser;
       giftStats.trackedVoiceMinutes = 0n;
       giftStats.claimedGiftsFromVoice = 0;
       giftStats.totalGiftsClaimed = 0;
       giftStats.availableGifts = 0;
-      await AppDataSource.getRepository(GiftStats).save(giftStats);
-    } catch (giftStatsError) {
-      logger.error(`Error creating giftStats for user ${discordId}:`, giftStatsError);
-    }
+      await transactionalEntityManager.save(giftStats);
+    });
 
-    try {
-      const checkUser = await userRepo.findOne({
-        where: { discordId },
-        relations: ["exp"]
-      });
-      
-      if (!checkUser) {
-        logger.error(`Не удалось создать пользователя ${discordId}`);
-        return;  
-      }
-      
-      logger.info(`[EnsureUserGuard] Успешно создан пользователь ${discordId}`);
-    } catch (checkError) {
-      logger.error(`Error checking user creation ${discordId}:`, checkError);
-    }
+    logger.info(`[EnsureUserGuard] Успешно создан пользователь ${discordId}`);
   } catch (error) {
     logger.error(`[EnsureUserGuard] Ошибка при создании пользователя ${discordId}:`, error);
+    throw error;
   }
 }

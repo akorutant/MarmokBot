@@ -14,9 +14,7 @@ import { RoleSelector } from "../events/RoleSelectorListener.js";
     dmPermission: false,
 })
 @SlashGroup("roles")
-export class RoleCommands {
-    // Remove the private roleSelector property completely
-    
+export class RoleCommands {    
     @Slash({ description: "Создать меню выбора ролей в текущем канале" })
     @Guard(RequireRoles(["high_mod_level"]))
     async chat(interaction: CommandInteraction): Promise<void> {

@@ -20,7 +20,6 @@ export class CreateCustomRolesTables1714079815785 implements MigrationInterface 
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
         `);
 
-        // Create RoleShare table
         await queryRunner.query(`
             CREATE TABLE \`role_share\` (
                 \`id\` int NOT NULL AUTO_INCREMENT,
@@ -32,7 +31,6 @@ export class CreateCustomRolesTables1714079815785 implements MigrationInterface 
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
         `);
 
-        // Create RoleHistory table
         await queryRunner.query(`
             CREATE TABLE \`role_history\` (
                 \`id\` int NOT NULL AUTO_INCREMENT,
@@ -46,7 +44,6 @@ export class CreateCustomRolesTables1714079815785 implements MigrationInterface 
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
         `);
 
-        // Add foreign key constraints
         await queryRunner.query(`
             ALTER TABLE \`custom_role\` 
             ADD CONSTRAINT \`FK_custom_role_creator\` FOREIGN KEY (\`creatorId\`) REFERENCES \`user\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION,
@@ -68,7 +65,6 @@ export class CreateCustomRolesTables1714079815785 implements MigrationInterface 
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        // Drop foreign key constraints first
         await queryRunner.query(`ALTER TABLE \`role_history\` DROP FOREIGN KEY \`FK_role_history_to_user\``);
         await queryRunner.query(`ALTER TABLE \`role_history\` DROP FOREIGN KEY \`FK_role_history_from_user\``);
         await queryRunner.query(`ALTER TABLE \`role_history\` DROP FOREIGN KEY \`FK_role_history_role\``);
@@ -79,7 +75,6 @@ export class CreateCustomRolesTables1714079815785 implements MigrationInterface 
         await queryRunner.query(`ALTER TABLE \`custom_role\` DROP FOREIGN KEY \`FK_custom_role_owner\``);
         await queryRunner.query(`ALTER TABLE \`custom_role\` DROP FOREIGN KEY \`FK_custom_role_creator\``);
 
-        // Drop tables
         await queryRunner.query(`DROP TABLE \`role_history\``);
         await queryRunner.query(`DROP TABLE \`role_share\``);
         await queryRunner.query(`DROP TABLE \`custom_role\``);

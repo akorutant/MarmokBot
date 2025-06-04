@@ -1,6 +1,6 @@
 import { EmbedBuilder, User } from "discord.js";
 import { AppDataSource } from "../services/database.js";
-import { User as DBUser } from "../entities/User.js"; // Импортируем DBUser из вашего проекта
+import { User as DBUser } from "../entities/User.js"; 
 import { Currency } from "../entities/Currency.js";
 
 export type Card = {

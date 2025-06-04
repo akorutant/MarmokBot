@@ -47,7 +47,25 @@ class CasinoCommands {
         interaction: CommandInteraction
     ) {
         try {
-            await interaction.deferReply();
+            if (!interaction || !interaction.user) {
+                logger.error("Casino random: Invalid interaction");
+                return;
+            }
+
+            if (isNaN(bet) || bet === null || bet === undefined) {
+                logger.error("Casino random: Invalid bet value", bet);
+
+                if (!interaction.replied && !interaction.deferred) {
+                    const errorEmbed = createErrorEmbed("❌ Некорректная ставка", interaction.user);
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+                return;
+            }
+
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.deferReply();
+            }
+
             const discordUser = interaction.user;
 
             const dbUser = await AppDataSource.getRepository(DBUser).findOneOrFail({
@@ -62,49 +80,70 @@ class CasinoCommands {
                     `У вас недостаточно средств! Необходимо ${bet}$, у вас ${dbUser.currency.currencyCount}$`,
                     interaction.user
                 );
-                await interaction.editReply({ embeds: [errorEmbed] });
+
+                if (interaction.deferred) {
+                    await interaction.editReply({ embeds: [errorEmbed] });
+                } else if (!interaction.replied) {
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
                 return;
             }
 
-            const newBalance = dbUser.currency.currencyCount - BigInt(bet);
-            await currencyRepository.update(
-                { id: dbUser.currency.id },
-                { currencyCount: newBalance }
-            );
-
-            const result = determineCasinoResult();
-            const winAmount = Math.floor(bet * result.multiplier);
-            let tax = 0;
-            let netWin = winAmount;
-
-            if (winAmount > 0) {
-                tax = Math.floor(winAmount * CasinoCommands.TAX_RATE);
-                netWin = winAmount - tax;
-
-                await currencyRepository.update(
+            await AppDataSource.transaction(async (transactionalEntityManager) => {
+                const newBalance = dbUser.currency.currencyCount - BigInt(bet);
+                await transactionalEntityManager.update(Currency,
                     { id: dbUser.currency.id },
-                    { currencyCount: newBalance + BigInt(netWin) }
+                    { currencyCount: newBalance }
                 );
-            }
 
-            const embed = createCasinoResultEmbed(
-                bet,
-                netWin,
-                result,
-                interaction
-            );
+                const result = determineCasinoResult();
+                const winAmount = Math.floor(bet * result.multiplier);
+                let tax = 0;
+                let netWin = winAmount;
 
-            logger.info(
-                `Пользователь ${discordUser.id} сделал ставку ${bet}$ ` +
-                `в казино и ${winAmount > 0 ? `выиграл ${netWin}$ (налог ${tax}$)` : 'проиграл'}`
-            );
+                if (winAmount > 0) {
+                    tax = Math.floor(winAmount * (CasinoCommands.TAX_RATE || 0.1));
+                    netWin = winAmount - tax;
 
-            await interaction.editReply({ embeds: [embed] });
+                    await transactionalEntityManager.update(Currency,
+                        { id: dbUser.currency.id },
+                        { currencyCount: newBalance + BigInt(netWin) }
+                    );
+                }
+
+                const embed = createCasinoResultEmbed(
+                    bet,
+                    netWin,
+                    result,
+                    interaction
+                );
+
+                logger.info(
+                    `Пользователь ${discordUser.id} сделал ставку ${bet}$ ` +
+                    `в казино и ${winAmount > 0 ? `выиграл ${netWin}$ (налог ${tax}$)` : 'проиграл'}`
+                );
+
+                if (interaction.deferred) {
+                    await interaction.editReply({ embeds: [embed] });
+                } else if (!interaction.replied) {
+                    await interaction.reply({ embeds: [embed] });
+                }
+            });
 
         } catch (error) {
             logger.error("Ошибка в команде казино:", error);
-            const errorEmbed = createErrorEmbed("Произошла ошибка при обработке ставки", interaction.user);
-            await interaction.editReply({ embeds: [errorEmbed] });
+
+            try {
+                const errorEmbed = createErrorEmbed("Произошла ошибка при обработке ставки", interaction.user);
+
+                if (interaction.deferred) {
+                    await interaction.editReply({ embeds: [errorEmbed] });
+                } else if (!interaction.replied) {
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+            } catch (responseError) {
+                logger.error("Failed to send error response in casino command:", responseError);
+            }
         }
     }
 
@@ -151,14 +190,12 @@ class CasinoCommands {
                 relations: ["currency"]
             });
 
-            // Списываем ставку
             const currencyRepository = AppDataSource.getRepository(Currency);
             await currencyRepository.update(
                 { id: dbUser.currency.id },
                 { currencyCount: dbUser.currency.currencyCount - BigInt(bet) }
             );
 
-            // Создаем игру
             const deck = CasinoCommands.game.createDeck();
             const gameState: GameState & { message?: Message } = {
                 playerCards: [deck.pop()!, deck.pop()!],
@@ -168,7 +205,6 @@ class CasinoCommands {
                 deck
             };
 
-            // Отправляем сообщение с игрой
             const embed = CasinoCommands.game.createGameEmbed(gameState, interaction.user);
             const buttons = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
@@ -222,10 +258,8 @@ class CasinoCommands {
                 return;
             }
 
-            // Добавляем карту игроку
             gameState.playerCards.push(gameState.deck.pop()!);
 
-            // Проверяем перебор
             if (CasinoCommands.game.calculateHand(gameState.playerCards) > 21) {
                 const { embed } = await CasinoCommands.game.dealerTurn(gameState, interaction.user);
                 const result = await CasinoCommands.game.processGameResult(gameState, userId);
@@ -244,7 +278,6 @@ class CasinoCommands {
                 return;
             }
 
-            // Обновляем сообщение
             const embed = CasinoCommands.game.createGameEmbed(gameState, interaction.user);
             await gameState.message?.edit({ embeds: [embed] });
 
@@ -304,7 +337,6 @@ class CasinoCommands {
                 return;
             }
 
-            // Проверка возможности удвоения
             if (gameState.playerCards.length !== 2) {
                 await interaction.followUp({
                     content: "Удвоение возможно только при первых двух картах!",
@@ -313,7 +345,6 @@ class CasinoCommands {
                 return;
             }
 
-            // Проверка баланса
             const dbUser = await AppDataSource.getRepository(DBUser).findOneOrFail({
                 where: { discordId: userId },
                 relations: ["currency"]
@@ -327,20 +358,16 @@ class CasinoCommands {
                 return;
             }
 
-            // Списываем дополнительную ставку
             const currencyRepository = AppDataSource.getRepository(Currency);
             await currencyRepository.update(
                 { id: dbUser.currency.id },
                 { currencyCount: dbUser.currency.currencyCount - BigInt(gameState.bet) }
             );
 
-            // Удваиваем ставку
             gameState.bet *= 2;
 
-            // Добавляем карту игроку
             gameState.playerCards.push(gameState.deck.pop()!);
 
-            // Завершаем игру
             const { embed } = await CasinoCommands.game.dealerTurn(gameState, interaction.user);
             const result = await CasinoCommands.game.processGameResult(gameState, userId);
 
@@ -377,7 +404,6 @@ class CasinoCommands {
                 return;
             }
 
-            // Возвращаем половину ставки
             const { winAmount } = await CasinoCommands.game.processGameResult(gameState, userId, true);
             const embed = CasinoCommands.game.createGameEmbed(gameState, interaction.user, true);
             embed.setDescription(`**Вы сдались! Возвращено ${winAmount}$.**`);

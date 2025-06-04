@@ -16,8 +16,8 @@ export class RoleHistory {
   role!: Relation<CustomRole>;
 
   @Column({ length: 50 })
-  actionType!: string; // 'CREATE', 'TRANSFER', 'EXPIRE', etc.
-
+  actionType!: string;  
+  
   @Column({ nullable: true })
   fromUserId!: number | null;
 
