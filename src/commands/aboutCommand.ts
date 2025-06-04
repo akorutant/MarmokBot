@@ -1,5 +1,14 @@
 import { Discord, Slash, Guard } from "discordx";
-import { CommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, TextDisplayBuilder } from "discord.js";
+import { 
+    CommandInteraction, 
+    ContainerBuilder, 
+    MediaGalleryBuilder, 
+    MediaGalleryItemBuilder, 
+    MessageFlags, 
+    SectionBuilder, 
+    SeparatorBuilder, 
+    TextDisplayBuilder 
+} from "discord.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
 import logger from "../services/logger.js";

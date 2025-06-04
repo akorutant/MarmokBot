@@ -11,3 +11,5 @@ yarn.lock
 build
 node_modules
 logs
+dumpf.sh
+all_files_dump.txt
