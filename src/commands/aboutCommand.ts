@@ -28,7 +28,7 @@ class AboutCommand {
             const changeLog = new TextDisplayBuilder().setContent(
                 `### 📝 Недавние изменения\n-# [Репозиторий бота на Github](https://github.com/akorutant/MarmokBot)\n${changeLogFromMd}`
             );
-            const footer = new TextDisplayBuilder().setContent('В случае ошибок бота обращайтесь в [телеграм](https://t.me/sufferedkid)')
+            const footer = new TextDisplayBuilder().setContent('В случае ошибок бота обращайтесь в [телеграм](https://t.me/MarmokBotSupportBot)')
             const separator = new SeparatorBuilder()
             const component = new ContainerBuilder().setAccentColor(0x903FFF)
                 .addTextDisplayComponents(content)

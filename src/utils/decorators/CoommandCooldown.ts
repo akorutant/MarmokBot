@@ -1,5 +1,5 @@
 import { GuardFunction } from "discordx";
-import { CommandInteraction } from "discord.js";
+import { CommandInteraction, ButtonInteraction, BaseInteraction } from "discord.js";
 import { AppDataSource } from "../../services/database.js";
 import { CommandCooldown } from "../../entities/CommandCooldown.js";
 import logger from "../../services/logger.js";
@@ -12,7 +12,7 @@ interface CooldownOptions {
     message?: string;
 }
 
-export function Cooldown(options: CooldownOptions | number): GuardFunction<CommandInteraction> {
+export function Cooldown(options: CooldownOptions | number): GuardFunction<BaseInteraction> {
     return async (interaction, _, next) => {
         let totalSeconds = 0;
 
@@ -26,14 +26,25 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
                 (options.days || 0) * 86400;
         }
 
-        const commandName = interaction.commandName;
+        // Определяем идентификатор в зависимости от типа взаимодействия
+        const identifier = interaction.isCommand()
+            ? `cmd_${interaction.commandName}`
+            : interaction.isButton()
+                ? `btn_${interaction.customId}`
+                : null;
+
+        if (!identifier) {
+            await next();
+            return;
+        }
+
         const userId = interaction.user.id;
 
         const cooldownRepository = AppDataSource.getRepository(CommandCooldown);
 
         try {
             const cooldown = await cooldownRepository.findOne({
-                where: { userId, commandName }
+                where: { userId, commandName: identifier }
             });
 
             const now = new Date();
@@ -44,14 +55,17 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
                 const remaining = totalSeconds - elapsedSeconds;
                 const timeString = formatTime(remaining);
 
-                const defaultMessage = `⏳ Эта команда на кулдауне. Попробуйте через ${timeString}`;
+                const defaultMessage = `⏳ Действие на кулдауне. Попробуйте через ${timeString}`;
                 const customMessage = typeof options === "object" ? options.message : undefined;
-                await interaction.reply({
-                    content: customMessage
-                        ? customMessage.replace("{time}", timeString)
-                        : defaultMessage,
-                    ephemeral: true
-                });
+
+                if (interaction.isRepliable()) {
+                    await interaction.reply({
+                        content: customMessage
+                            ? customMessage.replace("{time}", timeString)
+                            : defaultMessage,
+                        ephemeral: true
+                    });
+                }
                 return;
             }
 
@@ -59,15 +73,16 @@ export function Cooldown(options: CooldownOptions | number): GuardFunction<Comma
 
             await cooldownRepository.save({
                 userId,
-                commandName,
+                commandName: identifier,
                 lastUsed: now
             });
 
         } catch (error) {
+            logger.error("Cooldown check failed:", error);
             try {
-                if (!interaction.replied && !interaction.deferred) {
+                if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                     await interaction.reply({
-                        content: "❌ Ошибка проверки баланса",
+                        content: "❌ Ошибка проверки кулдауна",
                         ephemeral: true
                     });
                 }
