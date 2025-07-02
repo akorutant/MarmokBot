@@ -4,12 +4,10 @@ import { AppDataSource } from "../services/database.js";
 import { User as DBUser } from "../entities/User.js";
 import { ChannelGuard } from "../utils/decorators/ChannelGuard.js";
 import { EnsureUser } from "../utils/decorators/EnsureUsers.js";
-import { WithCustomBackground } from "../utils/decorators/CustomBackgroundDecorator.js";
 import { createErrorEmbed } from "../utils/embedBuilder.js";
 import {
     calculateNextLevelExp,
     getMaxLevelForExp,
-    getProgressToNextLevel,
     isMaxLevel
 } from "../utils/levelUpUtils.js";
 import { generateProfileImage } from "../utils/profileImageGenerator.js";
@@ -19,6 +17,13 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { EnsureUserGuard } from "../utils/decorators/EnsureUserGuard.js";
+import { 
+  safeDefer, 
+  safeEditReply, 
+  safeErrorReply, 
+  canRespond, 
+  createInteractionTimeout 
+} from "../utils/interactionUtils.js";
 
 @Discord()
 class ProfileCommand {
@@ -38,8 +43,28 @@ class ProfileCommand {
         user: User | undefined,
         interaction: CommandInteraction
     ) {
+        // Создаем timeout protection с увеличенным временем для генерации изображения
+        const timeout = createInteractionTimeout(
+            interaction, 
+            25000, // 25 секунд для генерации изображения
+            "⏱️ Генерация профиля заняла слишком много времени"
+        );
+        
         try {
-            await interaction.deferReply();
+            // Проверяем, можем ли мы отвечать на interaction
+            if (!canRespond(interaction)) {
+                logger.warn("Profile command: Cannot respond to interaction");
+                clearTimeout(timeout);
+                return;
+            }
+
+            // Безопасно делаем defer
+            const deferred = await safeDefer(interaction);
+            if (!deferred) {
+                logger.warn("Profile command: Failed to defer interaction");
+                clearTimeout(timeout);
+                return;
+            }
 
             const targetUser = user ? await interaction.client.users.fetch(user.id) : interaction.user;
             logger.info(`Generating profile for user: ${targetUser.tag} (${targetUser.id})`);
@@ -64,6 +89,7 @@ class ProfileCommand {
                 await AppDataSource.getRepository(dbUser.exp.constructor).save(dbUser.exp);
                 logger.info(`Скорректирован уровень пользователя ${targetUser.id}: ${levelValue}`);
             }
+
             const nextLevelExp = calculateNextLevelExp(levelValue);
             let progressPercentage = 0;
             if (!isMaxLevel(levelValue)) {
@@ -72,26 +98,27 @@ class ProfileCommand {
 
             logger.info(`User stats - Messages: ${messageCount}, Voice: ${voiceMinutes}, Level: ${levelValue}, Progress: ${progressPercentage}%`);
 
+            // Проверка кастомного фона
             let backgroundImagePath = undefined;
-                try {
-                    const configRepo = AppDataSource.getRepository(Config);
-                    const config = await configRepo.findOne({
-                        where: { key: "custom_background", value: targetUser.id }
-                    });
+            try {
+                const configRepo = AppDataSource.getRepository(Config);
+                const config = await configRepo.findOne({
+                    where: { key: "custom_background", value: targetUser.id }
+                });
+                
+                if (config) {
+                    const __filename = fileURLToPath(import.meta.url);
+                    const __dirname = path.dirname(__filename);
+                    const imagePath = path.join(__dirname, '../../assets/images', `${targetUser.id}.png`);
                     
-                    if (config) {
-                        const __filename = fileURLToPath(import.meta.url);
-                        const __dirname = path.dirname(__filename);
-                        const imagePath = path.join(__dirname, '../../assets/images', `${targetUser.id}.png`);
-                        
-                        if (fs.existsSync(imagePath)) {
-                            backgroundImagePath = imagePath;
-                            logger.info(`Применяем кастомный фон для пользователя ${targetUser.id}`);
-                        }
+                    if (fs.existsSync(imagePath)) {
+                        backgroundImagePath = imagePath;
+                        logger.info(`Применяем кастомный фон для пользователя ${targetUser.id}`);
                     }
-                } catch (error) {
-                    logger.error(`Ошибка при проверке кастомного фона: ${error}`);
                 }
+            } catch (error) {
+                logger.error(`Ошибка при проверке кастомного фона: ${error}`);
+            }
 
             try {
                 const profileImage = await generateProfileImage(
@@ -105,17 +132,29 @@ class ProfileCommand {
                 );
 
                 const attachment = new AttachmentBuilder(profileImage, { name: 'profile.png' });
-                await interaction.editReply({ files: [attachment] });
+                
+                // Очищаем timeout перед успешным ответом
+                clearTimeout(timeout);
+                
+                await safeEditReply(interaction, { files: [attachment] });
                 logger.info(`Profile image sent successfully for ${targetUser.tag}`);
             } catch (imageError) {
+                clearTimeout(timeout);
                 logger.error(`Error generating profile image: ${imageError}`);
-                const errorEmbed = createErrorEmbed("Произошла ошибка при создании изображения профиля", interaction.user);
-                await interaction.editReply({ embeds: [errorEmbed] });
+                
+                await safeErrorReply(
+                    interaction, 
+                    "Произошла ошибка при создании изображения профиля"
+                );
             }
         } catch (error) {
+            clearTimeout(timeout);
             logger.error(`General error in profile command: ${error}`);
-            const errorEmbed = createErrorEmbed("Произошла ошибка при получении данных", interaction.user);
-            await interaction.editReply({ embeds: [errorEmbed] });
+            
+            await safeErrorReply(
+                interaction, 
+                "Произошла ошибка при получении данных"
+            );
         }
     }
 }

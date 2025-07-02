@@ -152,7 +152,7 @@ class TransferCommand {
 
 
 @Discord()
-class BalanceCommand {
+export class BalanceCommand {
     @Slash({ description: "Посмотреть баланс пользователя" })
     @EnsureUser()
     @Guard(
@@ -169,7 +169,17 @@ class BalanceCommand {
         discordUser: DiscordUser | undefined,
         interaction: CommandInteraction,
     ) {
+        // Создаем timeout protection
+        const timeout = createInteractionTimeout(interaction);
+        
         try {
+            // Проверяем, можем ли мы отвечать на interaction
+            if (!canRespond(interaction)) {
+                logger.warn("Balance command: Cannot respond to interaction");
+                clearTimeout(timeout);
+                return;
+            }
+
             const targetUser = discordUser || interaction.user;
             const userRepository = AppDataSource.getRepository(User);
 
@@ -179,11 +189,20 @@ class BalanceCommand {
             });
 
             const embed = createCurrencyBalanceEmbed(targetUser, user.currency.currencyCount, interaction.user);
-            await interaction.reply({ embeds: [embed] });
+            
+            // Очищаем timeout перед успешным ответом
+            clearTimeout(timeout);
+            
+            await safeReply(interaction, { embeds: [embed] });
         } catch (error) {
-            const embed = createErrorEmbed("Ошибка! За подробностями обратитесь к разработчикам.", interaction.user);
-            await interaction.reply({ embeds: [embed] });
-            logger.error("Ошибка при проверке баланса: %O", error);
+            clearTimeout(timeout);
+            logger.error("Ошибка при проверке баланса:", error);
+            
+            // Используем безопасную отправку ошибки
+            await safeErrorReply(
+                interaction, 
+                "Ошибка! За подробностями обратитесь к разработчикам."
+            );
         }
     }
 }

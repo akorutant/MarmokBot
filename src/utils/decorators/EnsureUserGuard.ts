@@ -19,6 +19,12 @@ export function EnsureUserGuard(): GuardFunction<ChatInputCommandInteraction<Cac
           return;
         }
 
+        // Проверяем, что interaction еще действителен
+        if (interaction.replied || interaction.deferred) {
+          logger.warn("EnsureUserGuard: Interaction already replied or deferred");
+          return next();
+        }
+
         const commandUsers: DiscordUser[] = [];
         
         try {
@@ -48,17 +54,20 @@ export function EnsureUserGuard(): GuardFunction<ChatInputCommandInteraction<Cac
         try {
           const hasBot = commandUsers.some(user => user?.bot);
           if (hasBot) {
+            // Проверяем еще раз перед ответом
             if (!interaction.replied && !interaction.deferred) {
               try {
                 await interaction.reply({
                   content: "⚠️ Ботов нельзя передавать!",
                   ephemeral: true
                 });
+                return; // Завершаем выполнение, не вызывая next()
               } catch (replyError) {
                 logger.error("Error replying to interaction:", replyError);
+                return; // Завершаем даже при ошибке ответа
               }
             }
-            return;
+            return; // Завершаем без next() если уже отвечено
           }
         } catch (botCheckError) {
           logger.error("Error checking for bots:", botCheckError);
@@ -99,20 +108,24 @@ export function EnsureUserGuard(): GuardFunction<ChatInputCommandInteraction<Cac
         logger.error("EnsureUserGuard error:", error);
         
         try {
+          // Только пытаемся ответить, если interaction еще действителен
           if (interaction && !interaction.replied && !interaction.deferred) {
             await interaction.reply({
               content: "❌ Ошибка проверки пользователя",
               ephemeral: true
             });
+            return; // Не вызываем next() после отправки ошибки
           } else if (interaction && interaction.deferred && !interaction.replied) {
             await interaction.editReply({
               content: "❌ Ошибка проверки пользователя"
             });
+            return; // Не вызываем next() после отправки ошибки
           }
         } catch (responseError) {
           logger.error("Failed to send error response:", responseError);
         }
         
+        // Если не смогли ответить на interaction, продолжаем цепочку
         await next(); 
       }
     };

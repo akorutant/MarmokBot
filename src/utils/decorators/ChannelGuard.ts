@@ -13,23 +13,32 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
         return;
       }
 
+      // Проверяем состояние interaction в начале
+      if (interaction.replied || interaction.deferred) {
+        logger.warn(`ChannelGuard: Interaction already handled for '${configKey}'`);
+        return next();
+      }
+
       const configRepo = AppDataSource.getRepository(Config);
       const configs = await configRepo.find({ where: { key: configKey } });
 
       if (configs.length === 0) {
         logger.warn(`ChannelGuard: config '${configKey}' not found`);
         
+        // Проверяем состояние перед ответом
         if (!interaction.replied && !interaction.deferred) {
           try {
             await interaction.reply({
               content: "❌ Не удалось проверить канал. Обратитесь к администратору.",
               flags: MessageFlags.Ephemeral,
             });
+            return; // Завершаем без next()
           } catch (replyError) {
             logger.error("Failed to reply in ChannelGuard (config not found):", replyError);
+            return; // Завершаем даже при ошибке
           }
         }
-        return;
+        return; // Завершаем если уже отвечено
       }
 
       const allowedChannelIds = configs
@@ -46,11 +55,13 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
               content: "❌ Нет разрешенных каналов для этой команды.",
               flags: MessageFlags.Ephemeral,
             });
+            return; // Завершаем без next()
           } catch (replyError) {
             logger.error("Failed to reply in ChannelGuard (no channels):", replyError);
+            return; // Завершаем даже при ошибке
           }
         }
-        return;
+        return; // Завершаем если уже отвечено
       }
 
       if (!allowedChannelIds.includes(interaction.channelId)) {
@@ -62,28 +73,34 @@ export function ChannelGuard(configKey: string): GuardFunction<CommandInteractio
               content: `❌ Эту команду можно использовать только в следующих каналах: ${list}`,
               flags: MessageFlags.Ephemeral,
             });
+            return; // Завершаем без next()
           } catch (replyError) {
             logger.error("Failed to reply in ChannelGuard (wrong channel):", replyError);
+            return; // Завершаем даже при ошибке
           }
         }
-        return;
+        return; // Завершаем если уже отвечено
       }
 
+      // Канал разрешен - продолжаем выполнение
       await next();
     } catch (error) {
       logger.error(`ChannelGuard error for '${configKey}':`, error);
       
       try {
+        // Пытаемся ответить только если interaction еще действителен
         if (interaction && !interaction.replied && !interaction.deferred) {
           await interaction.reply({
             content: "❌ Ошибка проверки канала",
             flags: MessageFlags.Ephemeral,
           });
+          return; // Завершаем без next() после отправки ошибки
         }
       } catch (responseError) {
         logger.error("Failed to send error response in ChannelGuard:", responseError);
       }
       
+      // Если не смогли ответить, продолжаем цепочку
       await next();
     }
   };
